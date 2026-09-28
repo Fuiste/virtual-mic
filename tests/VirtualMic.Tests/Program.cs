@@ -153,12 +153,20 @@ var tests = new (string Name, Action Run)[]
     })
 };
 int failures = 0;
-foreach (var test in tests)
+var allTests = tests.Concat(EffectTests.Cases()).ToList();
+if (args.Length == 1) allTests.AddRange(VirtualMic.Diagnostics.PluginSmoke.Cases(args[0]));
+allTests.Add(("invalid manifests preserve built-ins", () =>
+{
+    string directory = Path.Combine(Path.GetTempPath(), "virtualmic-plugin-test-" + Guid.NewGuid().ToString("N"));
+    try { VirtualMic.Diagnostics.PluginSmoke.InvalidManifests(directory); }
+    finally { Directory.Delete(directory, true); }
+}));
+foreach (var test in allTests)
 {
     try { test.Run(); Console.WriteLine($"pass / {test.Name}"); }
     catch (Exception ex) { failures++; Console.WriteLine($"FAIL / {test.Name}: {ex.Message}"); }
 }
-Console.WriteLine($"{tests.Length - failures}/{tests.Length} passed");
+Console.WriteLine($"{allTests.Count - failures}/{allTests.Count} passed");
 return failures == 0 ? 0 : 1;
 
 static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }

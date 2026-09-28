@@ -5,7 +5,7 @@ namespace VirtualMic.Core;
 public sealed record SoundPad(string Id, string Name, string FileName, double Duration, float Gain = 1);
 public sealed record LibraryState
 {
-    public int Version { get; init; } = 1;
+    public int Version { get; init; } = 2;
     public List<SoundPad> Pads { get; init; } = [];
     public string? MicrophoneId { get; init; }
     public string? OutputId { get; init; }
@@ -26,8 +26,9 @@ public sealed class LibraryStore(string directory)
         // A malformed file is surfaced by the UI, never silently replaced.
         var state = JsonSerializer.Deserialize<LibraryState>(File.ReadAllText(StatePath))
             ?? throw new InvalidDataException("the sound library is empty or unreadable");
-        if (state.Version != 1 || state.Pads is null || state.Audio is null)
+        if (state.Version is not (1 or 2) || state.Pads is null || state.Audio is null)
             throw new InvalidDataException("unsupported sound library format");
+        if (state.Audio.Effects is not null) Effects.EffectChain.Validate(state.Audio.Effects);
         return state;
     }
 
@@ -35,7 +36,8 @@ public sealed class LibraryStore(string directory)
     {
         Directory.CreateDirectory(DirectoryPath);
         var temporary = StatePath + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(state, JsonOptions));
+        // Version 2 prevents older apps from silently overwriting the effects chain.
+        File.WriteAllText(temporary, JsonSerializer.Serialize(state with { Version = 2 }, JsonOptions));
         if (File.Exists(StatePath)) File.Replace(temporary, StatePath, StatePath + ".bak");
         else File.Move(temporary, StatePath);
     }

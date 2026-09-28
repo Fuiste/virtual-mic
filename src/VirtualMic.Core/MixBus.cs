@@ -1,9 +1,23 @@
 using NAudio.Wave;
+using VirtualMic.Core.Effects;
 
 namespace VirtualMic.Core;
 
-public sealed class MixBus(ISampleProvider microphone) : ISampleProvider
+public sealed class MixBus : ISampleProvider, IDisposable
 {
+    private readonly ISampleProvider microphone;
+    private readonly EffectCatalog catalog;
+    private readonly bool ownsCatalog;
+    private readonly EffectChain effects;
+    private bool soundsSuppressed = true;
+    public MixBus(ISampleProvider microphone, EffectCatalog? catalog = null)
+    {
+        this.microphone = microphone;
+        ownsCatalog = catalog is null;
+        this.catalog = catalog ?? new EffectCatalog();
+        effects = new(this.catalog);
+        effects.Configure(EffectDefaults.FromLegacy(settings));
+    }
     private sealed class Voice(string id, float[] samples, float gain)
     {
         public readonly string Id = id;
@@ -13,7 +27,6 @@ public sealed class MixBus(ISampleProvider microphone) : ISampleProvider
     }
     private readonly object gate = new();
     private readonly List<Voice> voices = [];
-    private readonly VoiceEffects effects = new();
     private float[] mic = new float[8192];
     private float[] sounds = new float[8192];
     private float[] monitor = new float[8192];
@@ -21,12 +34,22 @@ public sealed class MixBus(ISampleProvider microphone) : ISampleProvider
     private AudioLevels levels = new(0, 0, 0, false);
     private float master = .8f;
     private float soundGain = .7f;
+    private float micGain = 1;
     private float monitorGain;
     private float hearMic;
     private bool wasMonitoring;
     public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(48000, 2);
     public SampleQueue Monitor { get; } = new();
-    public AudioSettings Settings { get => Volatile.Read(ref settings); set => Volatile.Write(ref settings, value); }
+    public AudioSettings Settings
+    {
+        get => Volatile.Read(ref settings);
+        set
+        {
+            effects.Configure(value.Effects ?? EffectDefaults.FromLegacy(value));
+            Volatile.Write(ref settings, value);
+        }
+    }
+    public bool TryDequeueEffectFault(out EffectFault? fault) => effects.TryDequeueFault(out fault);
     public AudioLevels Levels => Volatile.Read(ref levels);
     public string[] PlayingIds { get { lock (gate) return voices.Select(v => v.Id).ToArray(); } }
 
@@ -39,13 +62,22 @@ public sealed class MixBus(ISampleProvider microphone) : ISampleProvider
             voices.RemoveAll(v => v.Id == id);
             if (voices.Count >= 16) voices.RemoveAt(0);
             voices.Add(new Voice(id, samples, Math.Clamp(gain, 0, 2)));
+            soundsSuppressed = false;
         }
     }
 
-    public void StopSounds() { lock (gate) voices.Clear(); Monitor.Clear(); }
+    public void StopSounds()
+    {
+        lock (gate) { voices.Clear(); soundsSuppressed = true; effects.ResetSounds(); Monitor.Clear(); }
+    }
     public void StopSound(string id) { lock (gate) voices.RemoveAll(v => v.Id == id); }
 
     public int Read(float[] buffer, int offset, int count)
+    {
+        lock (gate) return ReadLocked(buffer, offset, count);
+    }
+
+    private int ReadLocked(float[] buffer, int offset, int count)
     {
         if (count % 2 != 0) throw new ArgumentException("stereo frames required", nameof(count));
         if (mic.Length < count)
@@ -55,29 +87,29 @@ public sealed class MixBus(ISampleProvider microphone) : ISampleProvider
         Array.Clear(mic, 0, count);
         microphone.Read(mic, 0, count);
         var s = Settings;
-        effects.Process(mic, count, s);
+        for (int i = 0; i < count; i++) mic[i] = VoiceEffects.Finite(mic[i]);
         Array.Clear(sounds, 0, count);
-        lock (gate)
+        foreach (var voice in voices)
         {
-            foreach (var voice in voices)
-            {
-                int length = Math.Min(count, voice.Samples.Length - voice.Position);
-                for (int i = 0; i < length; i++) sounds[i] += VoiceEffects.Finite(voice.Samples[voice.Position + i]) * voice.Gain;
-                voice.Position += length;
-            }
-            voices.RemoveAll(v => v.Position >= v.Samples.Length);
+            int length = Math.Min(count, voice.Samples.Length - voice.Position);
+            for (int i = 0; i < length; i++) sounds[i] += VoiceEffects.Finite(voice.Samples[voice.Position + i]) * voice.Gain;
+            voice.Position += length;
         }
+        voices.RemoveAll(v => v.Position >= v.Samples.Length);
+        effects.Process(mic, sounds, count, !soundsSuppressed);
         float micPeak = 0, soundPeak = 0, outputPeak = 0;
         bool limited = false;
         for (int i = 0; i < count; i += 2)
         {
             master += (Math.Clamp(s.MasterGain, 0, 1) - master) * .002f;
             soundGain += (Math.Clamp(s.SoundGain, 0, 2) - soundGain) * .002f;
+            micGain += ((s.MicMuted ? 0 : Math.Clamp(s.MicGain, 0, 2)) - micGain) * .002f;
             monitorGain += ((s.MonitorEnabled ? Math.Clamp(s.MonitorGain, 0, 1) : 0) - monitorGain) * .002f;
             hearMic += ((s.MonitorMic ? 1f : 0f) - hearMic) * .002f;
             for (int ch = 0; ch < 2; ch++)
             {
                 int j = i + ch;
+                mic[j] *= micGain;
                 float clip = sounds[j] * soundGain;
                 float mixed = (mic[j] + clip) * master;
                 limited |= Math.Abs(mixed) > .98f;
@@ -94,4 +126,6 @@ public sealed class MixBus(ISampleProvider microphone) : ISampleProvider
         Volatile.Write(ref levels, new AudioLevels(micPeak, soundPeak, outputPeak, limited));
         return count;
     }
+
+    public void Dispose() { effects.Dispose(); if (ownsCatalog) catalog.Dispose(); }
 }

@@ -10,8 +10,12 @@
       "virtualmic.core": {
         "type": "Project",
         "dependencies": {
-          "NAudio.Core": "[2.2.1, )"
+          "NAudio.Core": "[2.2.1, )",
+          "VirtualMic.PluginApi": "[1.0.0, )"
         }
+      },
+      "virtualmic.pluginapi": {
+        "type": "Project"
       }
     }
   }

@@ -1,10 +1,10 @@
 # virtual mic
 
-a windows soundboard that mixes your microphone and sound clips into a virtual audio cable, with optional monitoring and voice effects.
+a windows soundboard that mixes your microphone and sound clips into a virtual audio cable, with optional monitoring and a configurable effects chain.
 
 **early preview for windows 11 x64.** working on the initial test system; wider device, call-client, and long-session testing is still needed. the portable executable is unsigned.
 
-[download the windows preview](https://github.com/Fuiste/virtual-mic/releases/tag/v0.1.0-preview.1) · [setup guide](docs/setup.md) · [report a problem](https://github.com/Fuiste/virtual-mic/issues)
+[download the windows preview](https://github.com/Fuiste/virtual-mic/releases/tag/v0.2.0-preview.1) · [setup guide](docs/setup.md) · [report a problem](https://github.com/Fuiste/virtual-mic/issues)
 
 ![virtual mic interface](docs/ui-preview.png)
 
@@ -14,7 +14,8 @@ a windows soundboard that mixes your microphone and sound clips into a virtual a
 - import wav, mp3, or aiff by picker or drag and drop; up to 24 pads and two minutes per clip.
 - overlap different sounds, retrigger a pad, rename/remove pads, and stop every sound without muting your mic.
 - separate microphone, soundboard, master, and headphone levels; dedicated mic mute.
-- voice-only bass boost and distortion with adjustable drive and wet/dry mix.
+- bass boost and distortion, plus an ordered chain with per-effect mic/sounds/both routing.
+- user-defined c# effects with generated controls, a small plugin api, and a buildable delay reference example. [plugin guide](docs/plugins.md).
 - soundboard monitoring, with a separate opt-in for hearing your processed mic.
 - original synthesized starter tones; no third-party meme recordings bundled.
 - keys 1–9 trigger pads while the window is focused; escape stops sounds.
@@ -22,9 +23,15 @@ a windows soundboard that mixes your microphone and sound clips into a virtual a
 
 ## download and run
 
-download `virtual-mic-v0.1.0-preview.1-win-x64.zip` from the [release page](https://github.com/Fuiste/virtual-mic/releases/tag/v0.1.0-preview.1), extract the entire zip, and open `VirtualMic.exe`. this portable build includes its .net runtime; no sdk is required. keep the accompanying docs, license, and notices with it. windows may identify this unsigned preview as an unrecognized app. the release includes `SHA256SUMS.txt` for verifying the zip and executable.
+the **0.2 preview** includes the effects chain, c# plugin loader, and plugin sdk. an optional delay reference plugin is available on the same release page.
+
+download `virtual-mic-v0.2.0-preview.1-win-x64.zip` from the [release page](https://github.com/Fuiste/virtual-mic/releases/tag/v0.2.0-preview.1), extract the entire zip, and open `VirtualMic.exe`. this portable build includes its .net runtime; no sdk is required. keep the accompanying docs, license, and notices with it. windows may identify this unsigned preview as an unrecognized app. the release includes `SHA256SUMS.txt` for verifying the zip and executable.
 
 install vb-cable separately using the [setup guide](docs/setup.md). first startup is silent; the mic is opened only after **start virtual mic**. in a source checkout, the build is under `artifacts/virtual-mic-win-x64/`.
+
+to try the reference plugin without an sdk, download `virtual-mic-delay-v0.2.0-preview.1.zip` from the release page and extract its `delay` folder into `%LOCALAPPDATA%\VirtualMic\plugins` while the app is closed. reopen the app, select **delay** in the effects menu, and click **+**. [plugin setup and development](docs/plugins.md).
+
+when upgrading from 0.1, close the app and back up `%LOCALAPPDATA%\VirtualMic` first. the library migrates to format 2; returning to 0.1 requires restoring the older backup.
 
 the visual preview contains illustrative sound names. the real library starts empty; import your own clips or add the four generated starter sounds.
 
@@ -43,10 +50,10 @@ the visual preview contains illustrative sound names. the real library starts em
 the cable's names are counterintuitive: this app sends audio *into* cable input; the chat app captures it *from* cable output. [publisher explanation](https://vb-audio.com/Cable/).
 
 ```text
-physical mic -> gain / bass / distortion --+
-                                         +-> master / peak guard -> cable input
-sound files -> pads / sound gain ---------+                         |
-                                                       cable output -> chat app
+physical mic -> mic/both effects -> gain/mute ---+
+                                               +-> master / guard -> cable input
+sound files -> pads -> sounds/both effects -----+                          |
+                                -> sound gain                  cable output -> chat app
 
 monitor branch -> headphones (sounds only, or sounds + voice)
 ```
@@ -56,6 +63,7 @@ stop the engine before changing devices. microphone/cable failures stop the rout
 ## storage and limits
 
 - `%LOCALAPPDATA%\VirtualMic\library.json` stores pad metadata, levels, effects, and endpoint ids. `.bak` retains the prior save. microphone capture is never recorded to disk.
+- external plugin folders live in `%LOCALAPPDATA%\VirtualMic\plugins`. plugins are trusted code running inside the app; see [installation, api, and recovery](docs/plugins.md).
 - imported files become independent 48 khz stereo floating-point wav copies in `sounds/`; originals are untouched. removing a pad leaves its internal copy recoverable.
 - decoded clips have a shared 256 mib memory budget; at most 16 distinct pads sound concurrently. oldest voice is dropped at the limit.
 - audio uses shared wasapi, with 30 ms primary and 40 ms monitor buffer requests. these are **not measured end-to-end latency**.
@@ -70,13 +78,14 @@ windows x64 and the .net 10 sdk specified in `global.json` are required. naudio 
 ```powershell
 .\scripts\build.ps1
 .\scripts\build.ps1 -Publish
+.\scripts\build-plugin.ps1
 .\scripts\verify-ui.ps1
 .\scripts\package.ps1
 ```
 
 the scripts use a project-local sdk at `.tools/dotnet` when present, otherwise `dotnet` on the path. dependency caches, tools, binaries, local audio inventory, and generated test files are ignored by git. regular and publish restores have separate committed lock files. the windows ci workflow builds and tests; it does not publish releases.
 
-`verify-ui.ps1` renders the actual wpf controls in populated, empty, minimum-size, and audio-error states, then checks import/resampling, rejected audio, starter tones, source preservation, and saved settings using an isolated test library. it does not open microphone or playback streams. `package.ps1` creates a distribution zip and sha256 checksums from an explicit file allowlist.
+the build tests routing, chain order, parameter changes, plugin faults, and concurrent edits, and loads the example dll inside the published executable. `verify-ui.ps1` exercises the actual chain controls, renders populated, empty, minimum-size, and audio-error states, then checks import/resampling and persistence in an isolated library. these checks open no audio devices. `package.ps1` creates a distribution zip and sha256 checksums from an explicit file allowlist, including the plugin sdk dll.
 
 ## testing and feedback
 

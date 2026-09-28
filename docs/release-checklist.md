@@ -1,6 +1,6 @@
 # stable-release qualification
 
-the public `0.1.0-preview.1` build is available for evaluation under the mit license. the items below distinguish completed checks from work still needed before calling a release stable.
+the public `0.2.0-preview.1` build is available for evaluation under the mit license. the items below distinguish completed checks from work still needed before calling a release stable.
 
 ## verified locally
 
@@ -15,6 +15,9 @@ the public `0.1.0-preview.1` build is available for evaluation under the mit lic
 - user listening confirmed mic and monitoring work on that system.
 
 ## remaining audio qualification
+
+- qualify the 0.2 chain by listening with mic/sounds/both targets, multiple ordered effects, and the external delay plugin; verify tails, mute, and sounds-only monitoring in real calls. existing hardware results below predate this change.
+- measure cpu/dropouts and long sessions with realistic third-party chains; in-process plugins must be trusted and can affect app stability.
 
 - confirm simultaneous microphone + clips through the cable in real call clients on additional systems.
 - verify discord and slack with their voice processing enabled and disabled; establish recommended settings based on recorded results.

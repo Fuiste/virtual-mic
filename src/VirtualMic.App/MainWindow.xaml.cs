@@ -11,12 +11,14 @@ using Microsoft.Win32;
 using NAudio.CoreAudioApi;
 using VirtualMic.App.Audio;
 using VirtualMic.Core;
+using VirtualMic.Core.Effects;
 
 namespace VirtualMic.App;
 
 public partial class MainWindow : Window
 {
     private readonly AudioEngine engine = new();
+    private readonly EffectCatalog effects = new();
     private readonly LibraryStore store;
     private readonly Dictionary<string, float[]> cache = [];
     private readonly DispatcherTimer meterTimer = new() { Interval = TimeSpan.FromMilliseconds(50) };
@@ -35,6 +37,10 @@ public partial class MainWindow : Window
         this.preview = preview;
         store = new LibraryStore(dataDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualMic"));
         InitializeComponent();
+        if (!preview) effects.LoadDirectory(Path.Combine(store.DirectoryPath, "plugins"));
+        EffectsEditor.Load(effects, EffectDefaults.FromLegacy(new()));
+        EffectsEditor.Changed += OnControlsChanged;
+        EffectsEditor.PluginsRequested += ShowPlugins;
         DataContext = this;
         engine.Faulted += message => Dispatcher.BeginInvoke(() => { if (!closed) { StopEngine(); ShowAudioError(message); } });
         engine.MonitorFaulted += message => Dispatcher.BeginInvoke(() =>
@@ -65,23 +71,22 @@ public partial class MainWindow : Window
         initialized = true;
         RefreshLibrary();
         UpdateControlLabels();
+        if (effects.Errors.Count > 0) ShowStatus("some plugins could not load. open plugins for details.", true);
         meterTimer.Start();
     }
 
     private AudioSettings Settings() => new(
         (float)MicVolume.Value / 100, (float)SoundVolume.Value / 100, (float)MasterVolume.Value / 100,
         MuteMic.IsChecked == true, MonitorToggle.IsChecked == true, HearMic.IsChecked == true,
-        (float)MonitorVolume.Value / 100, BassToggle.IsChecked == true, (float)Bass.Value,
-        DistortionToggle.IsChecked == true, (float)Drive.Value, (float)Wet.Value / 100);
+        (float)MonitorVolume.Value / 100, Effects: EffectsEditor.Snapshot());
 
     private void ApplySettings(AudioSettings s)
     {
         MicVolume.Value = s.MicGain * 100; SoundVolume.Value = s.SoundGain * 100;
         MasterVolume.Value = s.MasterGain * 100; MuteMic.IsChecked = s.MicMuted;
         MonitorToggle.IsChecked = s.MonitorEnabled; HearMic.IsChecked = s.MonitorMic;
-        MonitorVolume.Value = s.MonitorGain * 100; BassToggle.IsChecked = s.BassEnabled;
-        Bass.Value = s.BassDb; DistortionToggle.IsChecked = s.DistortionEnabled;
-        Drive.Value = s.Drive; Wet.Value = s.DistortionMix * 100;
+        MonitorVolume.Value = s.MonitorGain * 100;
+        EffectsEditor.Load(effects, s.Effects ?? EffectDefaults.FromLegacy(s));
     }
 
     private void RefreshDevices()
@@ -141,9 +146,6 @@ public partial class MainWindow : Window
     }
     private void UpdateControlLabels()
     {
-        BassValue.Text = $"+{Bass.Value:0} db";
-        DriveValue.Text = $"drive {Drive.Value:0.0}×";
-        WetValue.Text = $"mix {Wet.Value:0}%";
         MicValue.Text = $"{MicVolume.Value:0}%";
         SoundValue.Text = $"{SoundVolume.Value:0}%";
         MasterValue.Text = $"{MasterVolume.Value:0}%";
@@ -173,7 +175,8 @@ public partial class MainWindow : Window
                     catch { ShowStatus($"{pad.Name}: file unavailable or unsupported; remove and re-add it.", true); }
                 }
             if (closed) return;
-            engine.Start(mic, destination, MonitorOutput.SelectedItem as AudioDevice, Settings());
+            EffectsEditor.ClearFaults();
+            engine.Start(mic, destination, MonitorOutput.SelectedItem as AudioDevice, Settings(), effects);
             PowerButton.Content = "stop virtual mic";
             LiveText.Text = "live"; LiveDot.Fill = (Brush)FindResource("Green");
             SetDeviceControls(false);
@@ -318,6 +321,9 @@ public partial class MainWindow : Window
     }
     private void UpdateMeters()
     {
+        if (engine.Bus is { } bus)
+            while (bus.TryDequeueEffectFault(out var fault))
+                if (fault is not null) { EffectsEditor.ReportFault(fault); ShowStatus(fault.Message, true); }
         var levels = engine.Bus?.Levels ?? new AudioLevels(0, 0, 0, false);
         MicMeter.Value = Meter(levels.Mic); OutputMeter.Value = Meter(levels.Output);
         LevelText.Text = levels.Output > .00001 ? $"{20 * Math.Log10(levels.Output):0.0} dbfs" : "−∞ dbfs";
@@ -355,7 +361,42 @@ public partial class MainWindow : Window
     private void WindowClosing(object? sender, CancelEventArgs e)
     {
         if (importing) { e.Cancel = true; ShowStatus("finishing the import; close again when it completes."); return; }
-        closed = true; meterTimer.Stop(); saveTimer.Stop(); engine.Dispose(); SaveLibrary();
+        closed = true; meterTimer.Stop(); saveTimer.Stop(); engine.Dispose(); SaveLibrary(); effects.Dispose();
+    }
+
+    private void ShowPlugins()
+    {
+        string directory = Path.Combine(store.DirectoryPath, "plugins");
+        var panel = new StackPanel { Margin = new Thickness(20) };
+        panel.Children.Add(new TextBlock { Text = "installed effects", FontSize = 16, Margin = new Thickness(0, 0, 0, 10) });
+        foreach (var effect in effects.Effects)
+            panel.Children.Add(new TextBlock { Text = $"{effect.Definition.Name} / {effect.Source}", Margin = new Thickness(0, 3, 0, 3) });
+        foreach (var error in effects.Errors)
+            panel.Children.Add(new TextBlock { Text = error, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("Accent"), Margin = new Thickness(0, 6, 0, 0) });
+        panel.Children.Add(new TextBlock { Text = "put each plugin in its own folder, then restart the app. plugins run with your windows permissions; only install code you trust.",
+            TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("Muted"), Margin = new Thickness(0, 16, 0, 12) });
+        var folder = new Button { Content = "open plugins folder", HorizontalAlignment = HorizontalAlignment.Left };
+        folder.Click += (_, _) =>
+        {
+            if (preview) return;
+            try { Directory.CreateDirectory(directory); Process.Start(new ProcessStartInfo(directory) { UseShellExecute = true }); }
+            catch (Exception ex) { ShowStatus(ex.Message, true); }
+        };
+        panel.Children.Add(folder);
+        var guide = new Button { Content = "plugin development guide", HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
+        guide.Click += (_, _) =>
+        {
+            try
+            {
+                string local = Path.Combine(AppContext.BaseDirectory, "docs", "plugins.md");
+                Process.Start(new ProcessStartInfo(File.Exists(local) ? local : "https://github.com/Fuiste/virtual-mic/blob/master/docs/plugins.md") { UseShellExecute = true });
+            }
+            catch (Exception ex) { ShowStatus(ex.Message, true); }
+        };
+        panel.Children.Add(guide);
+        new Window { Title = "plugins", Owner = this, Width = 480, Height = 440, Background = (Brush)FindResource("Bg"),
+            Foreground = (Brush)FindResource("Ink"), WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } }.ShowDialog();
     }
 
     private void PopulatePreview()
@@ -367,21 +408,27 @@ public partial class MainWindow : Window
         VirtualOutput.ItemsSource = new[] { new AudioDevice("preview-cable", "cable input · vb-audio", true) };
         MonitorOutput.ItemsSource = new[] { new AudioDevice("preview-headphones", "headphones", false) };
         Microphone.SelectedIndex = VirtualOutput.SelectedIndex = MonitorOutput.SelectedIndex = 0;
-        BassToggle.IsChecked = true; MonitorToggle.IsChecked = true;
+        EffectsEditor.Load(effects, EffectDefaults.FromLegacy(new(BassEnabled: true)));
+        MonitorToggle.IsChecked = true;
         LiveText.Text = "preview / audio off";
         ShowStatus("visual preview · example pads and devices · audio is off");
     }
 
     internal void VerifyUi()
     {
-        Bass.Value = 12; DistortionToggle.IsChecked = true; Wet.Value = 65;
-        if (Settings().BassDb != 12 || !Settings().DistortionEnabled || Settings().DistortionMix != .65f)
+        EffectsEditor.VerifyControls();
+        EffectsEditor.Load(effects, EffectDefaults.FromLegacy(new(BassEnabled: true)));
+        var chain = EffectsEditor.Snapshot();
+        chain[0] = chain[0] with { Parameters = new() { ["gain"] = 12 }, Target = EffectTarget.Both };
+        chain[1] = chain[1] with { Enabled = true, Target = EffectTarget.Sounds, Parameters = new() { ["drive"] = 3, ["mix"] = 65 } };
+        EffectsEditor.Load(effects, chain);
+        if (Settings().Effects![0].Parameters["gain"] != 12 || Settings().Effects![1].Target != EffectTarget.Sounds)
             throw new InvalidOperationException("effect controls did not update settings");
         Play(Pads[0]);
         if (!Status.Text.Contains("preview is silent")) throw new InvalidOperationException("preview must stay silent");
         if (engine.IsRunning) throw new InvalidOperationException("preview opened audio");
         StopSounds(this, new());
-        Bass.Value = 6; DistortionToggle.IsChecked = false; Wet.Value = 40;
+        EffectsEditor.Load(effects, EffectDefaults.FromLegacy(new(BassEnabled: true)));
         ShowStatus("visual preview · example pads and devices · audio is off");
     }
 
@@ -407,9 +454,10 @@ public partial class MainWindow : Window
         await ImportFiles([bad]);
         if (Pads.Count != 1) throw new InvalidOperationException("invalid audio entered the library");
         AddStarterSounds(this, new());
-        BassToggle.IsChecked = true; Bass.Value = 11; SaveLibrary();
+        EffectsEditor.Load(effects, EffectDefaults.FromLegacy(new(BassEnabled: true, BassDb: 11)));
+        SaveLibrary();
         var restored = store.Load();
-        if (restored.Pads.Count != 5 || restored.Audio.BassDb != 11 || !restored.Audio.BassEnabled)
+        if (restored.Pads.Count != 5 || restored.Audio.Effects![0].Parameters["gain"] != 11 || !restored.Audio.Effects[0].Enabled)
             throw new InvalidOperationException("library or effects did not persist");
         if (engine.IsRunning) throw new InvalidOperationException("test unexpectedly started audio");
     }

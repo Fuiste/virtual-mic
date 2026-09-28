@@ -21,3 +21,6 @@ jobs:
       - name: silent ui and file lifecycle checks
         shell: pwsh
         run: ./scripts/verify-ui.ps1
+      - name: package app and reference plugin
+        shell: pwsh
+        run: ./scripts/package.ps1
