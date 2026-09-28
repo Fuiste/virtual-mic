@@ -1,0 +1,9 @@
+.tools/
+.packages/
+**/bin/
+**/obj/
+artifacts/
+.vs/
+*.user
+*.suo
+*.log
