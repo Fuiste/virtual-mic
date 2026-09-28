@@ -154,7 +154,7 @@ var tests = new (string Name, Action Run)[]
 };
 int failures = 0;
 var allTests = tests.Concat(EffectTests.Cases()).ToList();
-if (args.Length == 1) allTests.Add(("external echo loads and renders with isolated processor state", () => VirtualMic.Diagnostics.PluginSmoke.Run(args[0])));
+if (args.Length == 1) allTests.AddRange(VirtualMic.Diagnostics.PluginSmoke.Cases(args[0]));
 allTests.Add(("invalid manifests preserve built-ins", () =>
 {
     string directory = Path.Combine(Path.GetTempPath(), "virtualmic-plugin-test-" + Guid.NewGuid().ToString("N"));

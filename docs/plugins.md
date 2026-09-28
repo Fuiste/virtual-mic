@@ -36,10 +36,10 @@ bass boost and distortion ship as built-in plugins. existing libraries migrate t
 
 ```text
 plugins/
-  echo/
+  delay/
     plugin.json
-    VirtualMic.Echo.dll
-    VirtualMic.Echo.deps.json
+    VirtualMic.Delay.dll
+    VirtualMic.Delay.deps.json
     ...private dependencies, if any
 ```
 
@@ -53,7 +53,9 @@ install the .net 10 sdk and clone this repo. from the repo root:
 .\scripts\build-plugin.ps1
 ```
 
-this builds [the echo example](../examples/VirtualMic.Echo/EchoPlugin.cs) into `artifacts/sample-plugins/echo/`; it does not install it. copy that **echo folder** into the plugins folder above, then restart the app. echo exposes delay, feedback, and mix. it smooths feedback/mix changes; moving delay time can produce an audible discontinuity. it is a small example to extend, rather than a studio delay algorithm.
+this builds [the delay reference example](../examples/VirtualMic.Delay/DelayPlugin.cs) into `artifacts/sample-plugins/delay/`; it does not install it. copy that **delay folder** into the plugins folder above, then restart the app. delay exposes time, feedback, and mix. it smooths feedback/mix changes; moving delay time can produce an audible discontinuity. it is a small example to extend, rather than a studio delay algorithm.
+
+the [example readme](../examples/VirtualMic.Delay/README.md) covers control ranges, installation, signal flow, and extension points. its six dll tests cover repeat timing, dry/wet balance, feedback decay/wraparound, parameter edits/reset, independent state, and extreme settings. a fully wet instance starts with delayed audio only; the first parameter snapshot applies immediately.
 
 to develop your own, copy the example project, give its assembly and manifest a new name, and change its effect id to a unique stable value such as `yourname.robot`. the project references only the [plugin api](../src/VirtualMic.PluginApi/IAudioEffect.cs). it needs no app/core or naudio reference. use a public factory with a public parameterless constructor; one dll may export multiple factories.
 

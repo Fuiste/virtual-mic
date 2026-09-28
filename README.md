@@ -15,7 +15,7 @@ a windows soundboard that mixes your microphone and sound clips into a virtual a
 - overlap different sounds, retrigger a pad, rename/remove pads, and stop every sound without muting your mic.
 - separate microphone, soundboard, master, and headphone levels; dedicated mic mute.
 - bass boost and distortion, plus an ordered chain with per-effect mic/sounds/both routing.
-- user-defined c# effects with generated controls, a small plugin api, and a buildable echo example. [plugin guide](docs/plugins.md).
+- user-defined c# effects with generated controls, a small plugin api, and a buildable delay reference example. [plugin guide](docs/plugins.md).
 - soundboard monitoring, with a separate opt-in for hearing your processed mic.
 - original synthesized starter tones; no third-party meme recordings bundled.
 - keys 1–9 trigger pads while the window is focused; escape stops sounds.
