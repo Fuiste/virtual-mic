@@ -12,6 +12,13 @@ public sealed class VoiceEffects
     public void Process(float[] samples, int count, AudioSettings settings)
     {
         float targetBass = settings.BassEnabled ? Math.Clamp(settings.BassDb, 0, 18) : 0;
+        float targetWet = settings.DistortionEnabled ? Math.Clamp(settings.DistortionMix, 0, 1) : 0;
+        Process(samples.AsSpan(0, count), targetBass, Math.Clamp(settings.Drive, 1, 20), targetWet,
+            settings.MicMuted ? 0 : Math.Clamp(settings.MicGain, 0, 2));
+    }
+
+    public void Process(Span<float> samples, float targetBass, float targetDrive, float targetWet, float targetGain = 1)
+    {
         // Update once per block, approach gradually to reduce parameter clicks.
         float nextBass = bass + (targetBass - bass) * .15f;
         if (Math.Abs(nextBass - bass) > .001f)
@@ -20,10 +27,7 @@ public sealed class VoiceEffects
             left.Configure(bass);
             right.Configure(bass);
         }
-        float targetWet = settings.DistortionEnabled ? Math.Clamp(settings.DistortionMix, 0, 1) : 0;
-        float targetGain = settings.MicMuted ? 0 : Math.Clamp(settings.MicGain, 0, 2);
-        float targetDrive = Math.Clamp(settings.Drive, 1, 20);
-        for (int i = 0; i < count; i += 2)
+        for (int i = 0; i < samples.Length; i += 2)
         {
             wet += (targetWet - wet) * .002f;
             gain += (targetGain - gain) * .002f;
@@ -35,6 +39,12 @@ public sealed class VoiceEffects
         }
     }
 
+    public void Reset()
+    {
+        bass = wet = 0; gain = drive = 1;
+        left.Reset(); right.Reset();
+    }
+
     private static float Saturate(float sample, float drive, float wet) =>
         sample * (1 - wet) + MathF.Tanh(sample * drive) / MathF.Tanh(drive) * wet;
 
@@ -44,6 +54,7 @@ public sealed class VoiceEffects
     private sealed class Shelf
     {
         private double b0 = 1, b1, b2, a1, a2, z1, z2;
+        public void Reset() { b0 = 1; b1 = b2 = a1 = a2 = z1 = z2 = 0; }
         public void Configure(float decibels)
         {
             double a = Math.Pow(10, decibels / 40.0);

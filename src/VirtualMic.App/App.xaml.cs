@@ -16,6 +16,16 @@ public partial class App : Application
         base.OnStartup(e);
         try
         {
+            if (e.Args.Length == 3 && e.Args[0] == "--verify-plugins")
+            {
+                try
+                {
+                    VirtualMic.Diagnostics.PluginSmoke.Run(e.Args[1]);
+                    File.WriteAllText(e.Args[2], "{\"pluginSmokePassed\":true,\"audioOpened\":false}"); Shutdown(0);
+                }
+                catch (Exception ex) { File.WriteAllText(e.Args[2], ex.ToString()); Shutdown(1); }
+                return;
+            }
             if (e.Args.Length == 2 && e.Args[0] == "--list-devices")
             {
                 var inventory = new { capture = AudioEngine.Devices(DataFlow.Capture), render = AudioEngine.Devices(DataFlow.Render) };

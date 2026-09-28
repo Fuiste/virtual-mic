@@ -13,7 +13,7 @@ New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $zipPath = Join-Path $OutputDirectory $zipName
 # Explicit distribution allowlist: no debug symbols, device inventory, user library,
 # local SDK, driver installer, logs, or development fixtures enter the package.
-$files = @('VirtualMic.exe', 'README.md', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'docs', 'licenses') |
+$files = @('VirtualMic.exe', 'README.md', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'docs', 'licenses', 'plugin-sdk') |
     ForEach-Object { Join-Path $BuildDirectory $_ }
 foreach ($file in $files) { if (!(Test-Path -LiteralPath $file)) { throw "missing package input: $file" } }
 Compress-Archive -LiteralPath $files -DestinationPath $zipPath -CompressionLevel Optimal -Force

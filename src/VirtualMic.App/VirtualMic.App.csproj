@@ -5,9 +5,10 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>VirtualMic</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.1.0-preview.1</Version>
+    <Version>0.2.0-preview.1</Version>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../tests/Shared/PluginSmoke.cs" Link="Diagnostics/PluginSmoke.cs" />
     <ProjectReference Include="../VirtualMic.Core/VirtualMic.Core.csproj" />
     <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>

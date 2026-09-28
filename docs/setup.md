@@ -84,7 +84,7 @@ use a private mic test first. only join a call when you are ready to transmit au
 - [ ] **mix:** speak while a sound plays; both should be present.
 - [ ] **monitor:** enable listen. you should hear the sound locally; your remote mix should continue unchanged.
 - [ ] **voice monitor:** enable hear microphone with headphones. disable it again if the monitoring delay is distracting.
-- [ ] **bass:** enable bass boost, move the control, and speak. the voice should change; sound pads should remain clean.
+- [ ] **bass:** leave the row target on **mic**, enable bass boost, move the control, and speak. the voice should change; sound pads should remain clean.
 - [ ] **distortion:** enable distortion, raise drive/wet mix gradually, and speak. reduce levels if peak guard is repeatedly active.
 - [ ] **stop sounds:** play overlapping pads, then press stop sounds or escape. clips should stop and speech should continue.
 - [ ] **mic mute:** mute the microphone inside virtual mic. speech should stop; pads should still transmit.
@@ -92,6 +92,14 @@ use a private mic test first. only join a call when you are ready to transmit au
 - [ ] **restart:** close/reopen the app. pads/effects should persist, while the engine and monitoring start off.
 
 number keys 1-9 and escape work only while the app window is focused. there are no global hotkeys or tray/background controls yet.
+
+## effects chain / 0.2 preview
+
+the **effects** panel runs top to bottom. choose an effect and click **+** to add a row; use its arrows to reorder, checkbox to bypass, or **×** to remove. each row targets **mic**, **sounds**, or **both**. both processes the sources separately so sounds-only monitoring never includes your microphone's effects. default bass/distortion rows target mic, preserving the original behavior.
+
+to test routing, play a pad while speaking and switch distortion between the three targets. enable **hear microphone** to hear changes to your voice. **stop sounds** also clears sound-effect tails; normal pad endings let tails finish. chain edits are immediate and may click. plugins and their parameters are saved with your library.
+
+click **plugins** to see loaded effects/errors and open the installation folder. restart after adding/removing plugins. friends can build c# dlls using the [plugin guide and echo example](plugins.md); it also explains trusted-code requirements and recovery if a plugin prevents startup. plugin support requires the 0.2 source/build, rather than the original 0.1 public zip.
 
 ## what each stop/mute control does
 

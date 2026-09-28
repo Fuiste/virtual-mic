@@ -1,5 +1,15 @@
 # changelog
 
+## 0.2.0-preview.1 / unreleased
+
+- ordered effects chain with per-row mic, sounds, or both targets; add/remove, bypass, reorder, and generated parameter controls.
+- versioned c# plugin api, folder-based discovery, independent processor state, error reporting, and missing-plugin settings preservation.
+- built-in bass boost and distortion use the same api; existing settings migrate to mic-only rows.
+- mic mute includes processed voice; stop sounds clears effect tails without stopping the microphone.
+- echo example, standalone sdk dll, plugin authoring/setup guide, and packaged plugin-loading checks.
+
+automated checks are recorded in [verification](docs/verification.md). listening/call-client qualification for the new chain remains open.
+
 ## 0.1.0-preview.1
 
 first public windows x64 preview.

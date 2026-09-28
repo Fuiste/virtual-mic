@@ -2,6 +2,7 @@ using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using VirtualMic.Core;
+using VirtualMic.Core.Effects;
 
 namespace VirtualMic.App.Audio;
 
@@ -43,7 +44,7 @@ public sealed class AudioEngine : IDisposable
         return result.OrderBy(x => x.Name).ToList();
     }
 
-    public void Start(AudioDevice mic, AudioDevice destination, AudioDevice? headphones, AudioSettings settings)
+    public void Start(AudioDevice mic, AudioDevice destination, AudioDevice? headphones, AudioSettings settings, EffectCatalog? catalog = null)
     {
         Stop();
         if (mic.IsVirtual) throw new InvalidOperationException("choose a physical microphone to avoid a feedback loop");
@@ -79,7 +80,7 @@ public sealed class AudioEngine : IDisposable
             };
             ISampleProvider source = input.ToSampleProvider();
             source = Stereo48(source);
-            Bus = new MixBus(source) { Settings = settings };
+            Bus = new MixBus(source, catalog) { Settings = settings };
             output = new WasapiOut(outDevice, AudioClientShareMode.Shared, true, 30);
             output.Init(new FloatWaveProvider(Bus));
             output.PlaybackStopped += (_, args) =>
@@ -157,7 +158,7 @@ public sealed class AudioEngine : IDisposable
         Release(() => output?.Dispose()); output = null;
         Release(() => micDevice?.Dispose()); micDevice = null;
         Release(() => outDevice?.Dispose()); outDevice = null;
-        Bus = null;
+        Bus?.Dispose(); Bus = null;
     }
     private static void Release(Action action) { try { action(); } catch (System.Runtime.InteropServices.COMException) { } }
     public void Dispose() => Stop();

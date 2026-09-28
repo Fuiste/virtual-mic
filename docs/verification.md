@@ -1,6 +1,26 @@
 # local verification / 2026-09-28
 
-tested the packaged windows x64 prototype locally.
+## 0.2 plugin preview
+
+the plugin build was checked separately from the original hardware/listening results below.
+
+| check | result |
+| --- | --- |
+| release build | passed; 0 warnings, 0 errors |
+| core + plugin checks | 30 / 30 passed |
+| routing and lifecycle | mic/sounds/both, chain order, immutable parameter snapshots, state preservation, bypass/reset, factory/process faults, invalid samples, missing plugins, legacy migration, and concurrent edits passed |
+| monitor + stopping | independent state prevents mic leakage into sounds-only monitoring; mute includes effects; stop sounds suppresses sound generators/tails |
+| external plugin | example echo dll loaded and rendered stereo delayed impulses; independent instances and reset verified |
+| single-file host | the published self-contained executable loaded the example dll and passed the same processing check |
+| native controls | add/remove/reorder/bypass/target/parameter event wiring passed; populated, minimum-size, empty and error views rendered |
+| isolated library | import/resampling, source preservation, rejected files, starter tones, and new effect settings persisted |
+| real listening / call clients / long sessions | not yet repeated for 0.2; user testing pending |
+
+reproduce with `scripts/build.ps1 -Publish` and `scripts/verify-ui.ps1`. these tests load only the example plugin/test fixtures and open no audio devices. the sample plugin build is staged in `artifacts/sample-plugins/echo`, without installing it into the user's app data.
+
+## original 0.1 preview
+
+tested the packaged windows x64 prototype locally before the plugin changes.
 
 | check | result |
 | --- | --- |
