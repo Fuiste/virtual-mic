@@ -99,7 +99,7 @@ the **effects** panel runs top to bottom. choose an effect and click **+** to ad
 
 to test routing, play a pad while speaking and switch distortion between the three targets. enable **hear microphone** to hear changes to your voice. **stop sounds** also clears sound-effect tails; normal pad endings let tails finish. chain edits are immediate and may click. plugins and their parameters are saved with your library.
 
-click **plugins** to see loaded effects/errors and open the installation folder. restart after adding/removing plugins. friends can build c# dlls using the [plugin guide and delay reference example](plugins.md); it also explains trusted-code requirements and recovery if a plugin prevents startup. plugin support requires the 0.2 source/build, rather than the original 0.1 public zip.
+click **plugins** to see loaded effects/errors and open the installation folder. restart after adding/removing plugins. friends can build c# dlls using the [plugin guide and delay reference example](plugins.md); it also explains trusted-code requirements and recovery if a plugin prevents startup. plugin support requires version 0.2 or later. the release page includes an optional prebuilt delay plugin zip.
 
 ## what each stop/mute control does
 

@@ -1,6 +1,6 @@
 # changelog
 
-## 0.2.0-preview.1 / unreleased
+## 0.2.0-preview.1
 
 - ordered effects chain with per-row mic, sounds, or both targets; add/remove, bypass, reorder, and generated parameter controls.
 - versioned c# plugin api, folder-based discovery, independent processor state, error reporting, and missing-plugin settings preservation.

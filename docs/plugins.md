@@ -1,6 +1,6 @@
 # effects and plugins / api v1
 
-requires the 0.2 preview source/build. the original 0.1 release has the two fixed microphone effects.
+available in the [0.2 preview release](https://github.com/Fuiste/virtual-mic/releases/tag/v0.2.0-preview.1). the original 0.1 release has the two fixed microphone effects.
 
 ## use the chain
 
@@ -46,6 +46,8 @@ plugins/
 plugins are **trusted, in-process .net code** with the same windows permissions as the app. this is not a sandbox, permission system, or vst host. constructors execute during loading. managed processing exceptions and non-finite samples bypass the faulty row and display an error; the current processing chunk is restored to its input. earlier chunks in that buffer may already have been processed. stop/start audio to retry the row. a plugin that hangs, crashes native code, or exhausts resources can still affect the entire app. if one prevents startup, close the app and move its folder out of `plugins` before reopening.
 
 ## build the example
+
+for a ready-built example, download `virtual-mic-delay-v0.2.0-preview.1.zip` from the release page and extract its `delay` folder into the plugins folder while the app is closed. reopen the app and add **delay** to the chain. no sdk is needed to use that dll.
 
 install the .net 10 sdk and clone this repo. from the repo root:
 

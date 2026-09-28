@@ -4,6 +4,8 @@ a small stereo feedback delay implemented through virtual mic's public c# plugin
 
 ## build and install
 
+for a ready-built copy, download `virtual-mic-delay-v0.2.0-preview.1.zip` from the [release page](https://github.com/Fuiste/virtual-mic/releases/tag/v0.2.0-preview.1), then follow installation steps 1–4 below using the extracted `delay` folder. no sdk is required to use the compiled plugin.
+
 with the .net 10 sdk, run this from the repo root:
 
 ```powershell
