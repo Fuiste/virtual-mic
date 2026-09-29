@@ -25,17 +25,15 @@ public sealed class EffectCatalog : IDisposable
     public IEnumerable<EffectRegistration> Effects => registrations.Values;
     public EffectRegistration? Find(string id) => registrations.GetValueOrDefault(id);
 
-    public EffectCatalog()
-    {
-        Register(new BassBoostPlugin(), "built-in");
-        Register(new DistortionPlugin(), "built-in");
-    }
-
     public void Register(IAudioEffectPlugin plugin, string source = "plugin")
     {
         var definition = plugin.Definition;
-        if (definition is null || definition.ApiVersion != EffectApi.Version)
+        if (definition is null || definition.ApiVersion < 1 || definition.ApiVersion > EffectApi.Version)
             throw new InvalidDataException("unsupported effect api version");
+        if (definition.RequiresSpeakerReference && !definition.MicrophoneOnly)
+            throw new InvalidDataException("speaker-reference effects must be mic-only");
+        if (definition.ApiVersion < 2 && (definition.RequiresSpeakerReference || definition.MicrophoneOnly))
+            throw new InvalidDataException("voice capabilities require api v2");
         if (!ValidId(definition.Id) || string.IsNullOrWhiteSpace(definition.Name) || definition.Name.Length > 80)
             throw new InvalidDataException("invalid effect id or name");
         var parameters = definition.Parameters?.ToArray() ?? throw new InvalidDataException("parameters must not be null");
@@ -70,7 +68,7 @@ public sealed class EffectCatalog : IDisposable
                     if (new FileInfo(manifestPath).Length > 16384) throw new InvalidDataException("plugin manifest is too large");
                     var manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath),
                         new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new InvalidDataException("empty manifest");
-                    if (manifest.ApiVersion != EffectApi.Version) throw new InvalidDataException("unsupported plugin api version");
+                    if (manifest.ApiVersion < 1 || manifest.ApiVersion > EffectApi.Version) throw new InvalidDataException("unsupported plugin api version");
                     string entry = manifest.Assembly;
                     if (string.IsNullOrWhiteSpace(entry) || Path.GetFileName(entry) != entry || !entry.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
                         throw new InvalidDataException("assembly must name a dll in this plugin folder");
@@ -128,6 +126,13 @@ public sealed class EffectCatalog : IDisposable
         protected override nint LoadUnmanagedDll(string name)
         {
             var resolved = resolver.ResolveUnmanagedDllToPath(name);
+            // Native-only PackageDownload assets may have no deps.json entry.
+            // Resolve simple DLL names strictly beside this plugin's entry DLL.
+            if (resolved is null && Path.GetFileName(name) == name)
+            {
+                var local = Path.Combine(Path.GetDirectoryName(path)!, name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? name : name + ".dll");
+                if (File.Exists(local)) resolved = local;
+            }
             return resolved is null ? 0 : LoadUnmanagedDllFromPath(resolved);
         }
     }

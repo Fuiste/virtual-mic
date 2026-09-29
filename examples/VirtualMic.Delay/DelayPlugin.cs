@@ -10,7 +10,7 @@ public sealed class DelayPlugin : IAudioEffectPlugin
         new("delay", "time", 30, 1000, 240, "ms", 1),
         new("feedback", "feedback", 0, 85, 35, "%", 1),
         new("mix", "mix", 0, 100, 30, "%", 1)
-    ]);
+    ], ApiVersion: 1);
 
     // Each call returns independent state for one chain row and one source bus.
     public IAudioEffect Create(int sampleRate, int channels) => new DelayProcessor(sampleRate, channels);

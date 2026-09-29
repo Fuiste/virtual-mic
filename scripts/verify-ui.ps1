@@ -8,7 +8,7 @@ $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = Join-Path $env:TEMP 'bundles'
 New-Item -ItemType Directory -Force -Path $env:TEMP, artifacts, artifacts\library-check | Out-Null
 $executable = Join-Path (Join-Path $projectRoot $AppDirectory) 'VirtualMic.exe'
 if (!(Test-Path -LiteralPath $executable)) { throw 'run scripts/build.ps1 -Publish first' }
-foreach ($view in 'preview', 'compact', 'empty', 'error') {
+foreach ($view in 'preview', 'cleanup', 'compact', 'empty', 'error') {
     $imagePath = Join-Path $projectRoot "artifacts\ui-$view.png"
     $process = Start-Process -FilePath $executable -ArgumentList @("--render-$view", "`"$imagePath`"") -WindowStyle Hidden -PassThru -Wait
     if ($process.ExitCode -ne 0) { throw "ui $view failed; see $imagePath.error.txt" }

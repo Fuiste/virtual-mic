@@ -4,4 +4,5 @@
   <ItemGroup>
     <Compile Include="../Shared/PluginSmoke.cs" Link="PluginSmoke.cs" />
   </ItemGroup>
+<ItemGroup><Compile Include="../Shared/BundledPluginTests.cs" Link="Diagnostics/BundledPluginTests.cs" /></ItemGroup>
 </Project>

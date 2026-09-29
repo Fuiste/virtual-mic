@@ -19,7 +19,7 @@ public static class ClipLoader
         while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
         {
             if (samples.Count + read > MaxSamples) throw new InvalidDataException("clips must be two minutes or shorter");
-            for (int i = 0; i < read; i++) samples.Add(VoiceEffects.Finite(buffer[i]));
+            for (int i = 0; i < read; i++) samples.Add(float.IsFinite(buffer[i]) ? buffer[i] : 0);
         }
         if (samples.Count == 0) throw new InvalidDataException("the file contains no audio");
         if (samples.Count % 2 != 0) samples.Add(0);

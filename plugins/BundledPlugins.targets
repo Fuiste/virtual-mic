@@ -1,0 +1,19 @@
+<Project>
+  <Target Name="StageBundledPlugins" AfterTargets="Build">
+    <ItemGroup>
+      <Bundled Include="$(MSBuildThisFileDirectory)VirtualMic.Essentials/bin/$(Configuration)/net10.0/VirtualMic.Essentials.dll;$(MSBuildThisFileDirectory)VirtualMic.Essentials/bin/$(Configuration)/net10.0/VirtualMic.Essentials.deps.json;$(MSBuildThisFileDirectory)VirtualMic.Essentials/plugin.json;$(MSBuildThisFileDirectory)VirtualMic.Essentials/README.md">
+        <Folder>essentials</Folder>
+      </Bundled>
+      <Bundled Include="$(MSBuildThisFileDirectory)VirtualMic.Voice/bin/$(Configuration)/net10.0/VirtualMic.Voice.dll;$(MSBuildThisFileDirectory)VirtualMic.Voice/bin/$(Configuration)/net10.0/VirtualMic.Voice.deps.json;$(MSBuildThisFileDirectory)VirtualMic.Voice/bin/$(Configuration)/net10.0/webrtc-apm.dll;$(MSBuildThisFileDirectory)VirtualMic.Voice/plugin.json;$(MSBuildThisFileDirectory)VirtualMic.Voice/README.md">
+        <Folder>voice</Folder>
+      </Bundled>
+      <Bundled Include="$(MSBuildThisFileDirectory)../examples/VirtualMic.Delay/bin/$(Configuration)/net10.0/VirtualMic.Delay.dll;$(MSBuildThisFileDirectory)../examples/VirtualMic.Delay/bin/$(Configuration)/net10.0/VirtualMic.Delay.deps.json;$(MSBuildThisFileDirectory)../examples/VirtualMic.Delay/plugin.json;$(MSBuildThisFileDirectory)../examples/VirtualMic.Delay/README.md">
+        <Folder>delay</Folder>
+      </Bundled>
+    </ItemGroup>
+    <Copy SourceFiles="@(Bundled)" DestinationFiles="@(Bundled->'$(TargetDir)plugins/%(Folder)/%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="PublishBundledPlugins" AfterTargets="Publish" DependsOnTargets="StageBundledPlugins">
+    <Copy SourceFiles="@(Bundled)" DestinationFiles="@(Bundled->'$(PublishDir)plugins/%(Folder)/%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

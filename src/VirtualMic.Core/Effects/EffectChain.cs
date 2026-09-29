@@ -36,9 +36,11 @@ public sealed class EffectChain(EffectCatalog catalog) : IDisposable
             foreach (var slot in slots)
             {
                 var registration = catalog.Find(slot.EffectId);
+                var target = registration?.Definition.MicrophoneOnly == true ? EffectTarget.Mic : slot.Target;
                 var previous = plan.FirstOrDefault(s => s.Id == slot.InstanceId && s.EffectId == slot.EffectId);
                 Runtime runtime;
-                if (previous is not null) runtime = previous.Runtime;
+                if (previous is not null && !(previous.Runtime.Mic is IRecreateOnEnable &&
+                    (previous.Enabled != slot.Enabled || previous.Target != target))) runtime = previous.Runtime;
                 else
                 {
                     runtime = new Runtime(); created.Add(runtime);
@@ -46,13 +48,18 @@ public sealed class EffectChain(EffectCatalog catalog) : IDisposable
                     {
                         if (registration is null) throw new InvalidOperationException($"{slot.EffectId} is unavailable");
                         runtime.Mic = registration.Factory.Create(48000, 2) ?? throw new InvalidOperationException("factory returned no processor");
-                        runtime.Sounds = registration.Factory.Create(48000, 2) ?? throw new InvalidOperationException("factory returned no processor");
+                        if (!registration.Definition.MicrophoneOnly)
+                            runtime.Sounds = registration.Factory.Create(48000, 2) ?? throw new InvalidOperationException("factory returned no processor");
                         if (ReferenceEquals(runtime.Mic, runtime.Sounds)) throw new InvalidOperationException("factory must return separate processor instances");
+                        if (registration.Definition.RequiresSpeakerReference && runtime.Mic is not IReferenceAudioEffect)
+                            throw new InvalidOperationException("reference effect must implement IReferenceAudioEffect");
                     }
                     catch (Exception ex) { Fail(runtime, slot.InstanceId, registration?.Definition.Name ?? slot.EffectId, ex); }
                 }
                 next.Add(new(slot.InstanceId, slot.EffectId, registration?.Definition.Name ?? slot.EffectId,
-                    slot.Enabled, slot.Target, registration?.Parameters(slot.Parameters) ?? new Dictionary<string, float>(), runtime));
+                    slot.Enabled, target,
+                    registration?.Parameters(slot.Parameters) ?? new Dictionary<string, float>(), runtime,
+                    registration?.Definition.RequiresSpeakerReference == true));
             }
         }
         catch { foreach (var runtime in created) runtime.Dispose(); throw; }
@@ -61,30 +68,32 @@ public sealed class EffectChain(EffectCatalog catalog) : IDisposable
         foreach (var removed in old.Where(s => !next.Any(n => ReferenceEquals(n.Runtime, s.Runtime)))) removed.Runtime.Dispose();
     }
 
-    public void Process(float[] mic, float[] sounds, int count, bool processSounds = true)
+    public void Process(float[] mic, float[] sounds, int count, bool processSounds = true,
+        ReadOnlySpan<float> reference = default, bool referenceDiscontinuity = false)
     {
         lock (gate)
         {
             foreach (var step in plan)
             {
                 var runtime = step.Runtime;
-                bool micOn = step.Enabled && step.Target is EffectTarget.Mic or EffectTarget.Both;
+                bool micOn = step.Enabled && (step.Target is EffectTarget.Mic or EffectTarget.Both)
+                    && (!step.Reference || reference.Length == count);
                 bool soundsOn = processSounds && step.Enabled && step.Target is EffectTarget.Sounds or EffectTarget.Both;
                 try
                 {
-                    if (runtime.MicOn && !micOn) runtime.Mic?.Reset();
+                    if ((runtime.MicOn && !micOn) || (step.Reference && referenceDiscontinuity)) runtime.Mic?.Reset();
                     if (runtime.SoundsOn && !soundsOn) runtime.Sounds?.Reset();
                 }
                 catch (Exception ex) { Fail(runtime, step.Id, step.Name, ex); }
                 runtime.MicOn = micOn; runtime.SoundsOn = soundsOn;
                 if (runtime.Failed) continue;
-                if (micOn) ProcessLane(step, runtime.Mic!, mic, count);
-                if (soundsOn && !runtime.Failed) ProcessLane(step, runtime.Sounds!, sounds, count);
+                if (micOn) ProcessLane(step, runtime.Mic!, mic, count, reference);
+                if (soundsOn && !runtime.Failed) ProcessLane(step, runtime.Sounds!, sounds, count, default);
             }
         }
     }
 
-    private void ProcessLane(Step step, IAudioEffect effect, float[] samples, int count)
+    private void ProcessLane(Step step, IAudioEffect effect, float[] samples, int count, ReadOnlySpan<float> reference)
     {
         for (int offset = 0; offset < count; offset += ChunkSamples)
         {
@@ -92,7 +101,8 @@ public sealed class EffectChain(EffectCatalog catalog) : IDisposable
             block.CopyTo(backup);
             try
             {
-                effect.Process(block, step.Parameters);
+                if (step.Reference) ((IReferenceAudioEffect)effect).Process(block, reference.Slice(offset, block.Length), step.Parameters);
+                else effect.Process(block, step.Parameters);
                 foreach (float sample in block)
                     if (!float.IsFinite(sample)) throw new InvalidOperationException("effect produced invalid audio");
             }
@@ -128,7 +138,7 @@ public sealed class EffectChain(EffectCatalog catalog) : IDisposable
     }
 
     private sealed record Step(string Id, string EffectId, string Name, bool Enabled, EffectTarget Target,
-        IReadOnlyDictionary<string, float> Parameters, Runtime Runtime);
+        IReadOnlyDictionary<string, float> Parameters, Runtime Runtime, bool Reference);
     private sealed class Runtime : IDisposable
     {
         public IAudioEffect? Mic, Sounds;

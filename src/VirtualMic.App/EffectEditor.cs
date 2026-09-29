@@ -24,6 +24,11 @@ public sealed class EffectEditor : UserControl
         var root = new DockPanel();
         var header = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 0, 0, 8) };
         header.Children.Add(new TextBlock { Text = "effects", FontSize = 16, VerticalAlignment = VerticalAlignment.Center });
+        var cleanup = new Button { Content = "clean voice", Padding = new Thickness(8, 4, 8, 4), Margin = new Thickness(10, 0, 0, 0),
+            ToolTip = "add mic echo cancellation, noise suppression and podcast voice" };
+        AutomationProperties.SetName(cleanup, "clean voice");
+        cleanup.Click += (_, _) => AddCleanVoice();
+        header.Children.Add(cleanup);
         var plugins = new Button { Content = "plugins", Padding = new Thickness(10, 4, 10, 4) };
         plugins.Click += (_, _) => PluginsRequested?.Invoke();
         DockPanel.SetDock(plugins, Dock.Right); header.Children.Add(plugins);
@@ -48,12 +53,24 @@ public sealed class EffectEditor : UserControl
     {
         EffectChain.Validate(chain);
         catalog = source;
-        slots.Clear(); slots.AddRange(chain.Select(Clone));
+        slots.Clear(); slots.AddRange(chain.Select(s => source.Find(s.EffectId)?.Definition.MicrophoneOnly == true
+            ? Clone(s) with { Target = EffectTarget.Mic } : Clone(s)));
         available.ItemsSource = catalog.Effects.ToArray(); available.SelectedIndex = 0;
         Render();
     }
 
     public EffectSlot[] Snapshot() => slots.Select(Clone).ToArray();
+    internal void AddCleanVoice()
+    {
+        string[] ids = ["virtualmic.echo-cancellation", "virtualmic.noise-suppression", "virtualmic.podcast"];
+        if (ids.Any(id => catalog.Find(id) is null) || slots.Count + ids.Count(id => !slots.Any(s => s.EffectId == id)) > EffectChain.MaximumEffects) return;
+        var clean = ids.Select(id => slots.FirstOrDefault(s => s.EffectId == id) ?? new EffectSlot
+        {
+            EffectId = id, Parameters = catalog.Find(id)!.Definition.Parameters.ToDictionary(p => p.Id, p => p.DefaultValue)
+        }).Select(s => s with { Enabled = true, Target = EffectTarget.Mic }).ToArray();
+        slots.RemoveAll(s => clean.Any(c => c.InstanceId == s.InstanceId));
+        slots.InsertRange(0, clean); Render(); Changed?.Invoke();
+    }
     private static EffectSlot Clone(EffectSlot slot) => slot with { Parameters = new(slot.Parameters) };
     public void ReportFault(EffectFault fault)
     {
@@ -75,8 +92,14 @@ public sealed class EffectEditor : UserControl
         if (slots[1].EffectId != "virtualmic.bass") throw new InvalidOperationException("chain reorder failed");
         Control<Button>("remove bass boost").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)); UpdateLayout();
         if (slots.Count != 1) throw new InvalidOperationException("remove effect failed");
+        available.SelectedItem = catalog.Find("virtualmic.bass");
         Control<Button>("add effect to chain").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         if (slots.Count != 2 || slots[1].EffectId != "virtualmic.bass") throw new InvalidOperationException("add effect failed");
+        Control<Button>("clean voice").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)); UpdateLayout();
+        if (!slots.Take(3).Select(s => s.EffectId).SequenceEqual(new[] { "virtualmic.echo-cancellation", "virtualmic.noise-suppression", "virtualmic.podcast" }) ||
+            slots.Take(3).Any(s => !s.Enabled || s.Target != EffectTarget.Mic)) throw new InvalidOperationException("clean voice preset failed");
+        Control<Button>("clean voice").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        if (slots.Count != 5 || Control<ComboBox>("noise suppression target").IsEnabled) throw new InvalidOperationException("cleanup duplicated rows or allowed sounds routing");
     }
     private static IEnumerable<DependencyObject> Descendants(DependencyObject parent)
     {
@@ -109,8 +132,10 @@ public sealed class EffectEditor : UserControl
             enabled.Click += (_, _) => { Replace(slot.InstanceId, s => s with { Enabled = enabled.IsChecked == true }); };
             header.Children.Add(enabled);
             var target = new ComboBox { Width = 90, MinHeight = 28, Padding = new Thickness(6, 3, 20, 3),
-                ItemsSource = new[] { "mic", "sounds", "both" }, SelectedIndex = (int)slot.Target,
-                ToolTip = "both processes mic and sounds separately before mixing" };
+                ItemsSource = new[] { "mic", "sounds", "both" },
+                SelectedIndex = effect?.Definition.MicrophoneOnly == true ? 0 : (int)slot.Target,
+                IsEnabled = effect?.Definition.MicrophoneOnly != true,
+                ToolTip = effect?.Definition.MicrophoneOnly == true ? "voice cleanup always processes only the microphone" : "both processes mic and sounds separately before mixing" };
             AutomationProperties.SetName(target, name + " target");
             target.SelectionChanged += (_, _) => Replace(slot.InstanceId, s => s with { Target = (EffectTarget)target.SelectedIndex });
             Grid.SetColumn(target, 1); header.Children.Add(target);

@@ -144,3 +144,17 @@ to remove vb-cable, first move any apps using it back to their physical devices.
 when reporting a problem, note the mic/interface, headphone output, call client, which meters moved, whether local monitoring worked, and whether effects/noise suppression were enabled. mention the exact action that failed and any on-screen error. do not include device ids or personal audio unless needed and intentionally shared.
 
 audio error logs contain timestamps, exception messages, and stack traces; they do not record audio. they stay local and rotate at approximately 256 kib with one previous file. review logs before sharing them.
+
+## 0.3 voice cleanup
+
+The 0.3 development build includes **clean voice**: mic-only echo cancellation,
+noise suppression and podcast compression, applied before soundboard mixing.
+Choose the same **speakers / headphones** output as your call app, then click
+**clean voice**. Speaker capture works with **listen** off. Disable the call app's
+noise suppression/echo cancellation/automatic gain control so it does not filter
+the finished mic-and-soundboard mix. Set manual input sensitivity or use
+push-to-talk for quiet clips. **Hear microphone** is disabled while echo
+cancellation is enabled to prevent speaker feedback.
+
+Extract the whole zip, including its `plugins` directory. Existing bass/distortion
+settings and v1 plugins still work. See [voice setup, limits and troubleshooting](voice-processing.md).

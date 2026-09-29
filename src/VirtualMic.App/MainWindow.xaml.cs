@@ -37,6 +37,7 @@ public partial class MainWindow : Window
         this.preview = preview;
         store = new LibraryStore(dataDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualMic"));
         InitializeComponent();
+        effects.LoadDirectory(Path.Combine(AppContext.BaseDirectory, "plugins"));
         if (!preview) effects.LoadDirectory(Path.Combine(store.DirectoryPath, "plugins"));
         EffectsEditor.Load(effects, EffectDefaults.FromLegacy(new()));
         EffectsEditor.Changed += OnControlsChanged;
@@ -49,6 +50,10 @@ public partial class MainWindow : Window
             engine.StopMonitor();
             MonitorToggle.IsChecked = false;
             ShowAudioError($"{message}. mic route stays live; retry listen or stop and choose another output.");
+        });
+        engine.ReferenceFaulted += message => Dispatcher.BeginInvoke(() =>
+        {
+            if (!closed) ShowAudioError($"{message}. mic stays live; toggle echo cancellation off/on to retry.");
         });
         saveTimer.Tick += (_, _) => { saveTimer.Stop(); SaveLibrary(); };
         meterTimer.Tick += (_, _) => UpdateMeters();
@@ -70,6 +75,7 @@ public partial class MainWindow : Window
         }
         initialized = true;
         RefreshLibrary();
+        UpdateVoiceControls();
         UpdateControlLabels();
         if (effects.Errors.Count > 0) ShowStatus("some plugins could not load. open plugins for details.", true);
         meterTimer.Start();
@@ -136,6 +142,7 @@ public partial class MainWindow : Window
     private void OnControlsChanged()
     {
         if (!initialized) return;
+        UpdateVoiceControls();
         if (MonitorToggle.IsChecked == true && MonitorOutput.SelectedItem is null)
         {
             MonitorToggle.IsChecked = false;
@@ -151,6 +158,14 @@ public partial class MainWindow : Window
         MasterValue.Text = $"{MasterVolume.Value:0}%";
         MonitorValue.Text = $"{MonitorVolume.Value:0}%";
     }
+    private void UpdateVoiceControls()
+    {
+        bool cleaningSpeakers = EffectsEditor.Snapshot().Any(s => s.Enabled && effects.Find(s.EffectId)?.Definition.RequiresSpeakerReference == true);
+        if (cleaningSpeakers && HearMic.IsChecked == true) HearMic.IsChecked = false;
+        HearMic.IsEnabled = !cleaningSpeakers;
+        HearMic.ToolTip = cleaningSpeakers ? "disabled during echo cancellation to prevent speaker feedback" : "use headphones to hear your microphone";
+    }
+    internal void CleanVoicePreview() { EffectsEditor.AddCleanVoice(); UpdateVoiceControls(); }
 
     private async void ToggleEngine(object sender, RoutedEventArgs e)
     {
@@ -373,7 +388,7 @@ public partial class MainWindow : Window
             panel.Children.Add(new TextBlock { Text = $"{effect.Definition.Name} / {effect.Source}", Margin = new Thickness(0, 3, 0, 3) });
         foreach (var error in effects.Errors)
             panel.Children.Add(new TextBlock { Text = error, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("Accent"), Margin = new Thickness(0, 6, 0, 0) });
-        panel.Children.Add(new TextBlock { Text = "put each plugin in its own folder, then restart the app. plugins run with your windows permissions; only install code you trust.",
+        panel.Children.Add(new TextBlock { Text = "bundled plugins load beside the app. put custom plugins in the user folder, then restart. plugins run with your windows permissions; only install code you trust.",
             TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("Muted"), Margin = new Thickness(0, 16, 0, 12) });
         var folder = new Button { Content = "open plugins folder", HorizontalAlignment = HorizontalAlignment.Left };
         folder.Click += (_, _) =>

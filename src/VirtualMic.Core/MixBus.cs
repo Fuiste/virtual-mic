@@ -30,6 +30,7 @@ public sealed class MixBus : ISampleProvider, IDisposable
     private float[] mic = new float[8192];
     private float[] sounds = new float[8192];
     private float[] monitor = new float[8192];
+    private float[] reference = new float[8192];
     private AudioSettings settings = new();
     private AudioLevels levels = new(0, 0, 0, false);
     private float master = .8f;
@@ -82,21 +83,23 @@ public sealed class MixBus : ISampleProvider, IDisposable
         if (count % 2 != 0) throw new ArgumentException("stereo frames required", nameof(count));
         if (mic.Length < count)
         {
-            mic = new float[count]; sounds = new float[count]; monitor = new float[count];
+            mic = new float[count]; sounds = new float[count]; monitor = new float[count]; reference = new float[count];
         }
         Array.Clear(mic, 0, count);
         microphone.Read(mic, 0, count);
         var s = Settings;
-        for (int i = 0; i < count; i++) mic[i] = VoiceEffects.Finite(mic[i]);
+        for (int i = 0; i < count; i++) mic[i] = Finite(mic[i]);
         Array.Clear(sounds, 0, count);
         foreach (var voice in voices)
         {
             int length = Math.Min(count, voice.Samples.Length - voice.Position);
-            for (int i = 0; i < length; i++) sounds[i] += VoiceEffects.Finite(voice.Samples[voice.Position + i]) * voice.Gain;
+            for (int i = 0; i < length; i++) sounds[i] += Finite(voice.Samples[voice.Position + i]) * voice.Gain;
             voice.Position += length;
         }
         voices.RemoveAll(v => v.Position >= v.Samples.Length);
-        effects.Process(mic, sounds, count, !soundsSuppressed);
+        bool discontinuity = false;
+        bool hasReference = microphone is ISpeakerReferenceSource source && source.CopyReference(reference.AsSpan(0, count), out discontinuity);
+        effects.Process(mic, sounds, count, !soundsSuppressed, hasReference ? reference.AsSpan(0, count) : default, discontinuity);
         float micPeak = 0, soundPeak = 0, outputPeak = 0;
         bool limited = false;
         for (int i = 0; i < count; i += 2)
@@ -113,8 +116,8 @@ public sealed class MixBus : ISampleProvider, IDisposable
                 float clip = sounds[j] * soundGain;
                 float mixed = (mic[j] + clip) * master;
                 limited |= Math.Abs(mixed) > .98f;
-                buffer[offset + j] = Math.Clamp(VoiceEffects.Finite(mixed), -.98f, .98f);
-                monitor[j] = Math.Clamp(VoiceEffects.Finite((mic[j] * hearMic + clip) * master * monitorGain), -.98f, .98f);
+                buffer[offset + j] = Math.Clamp(Finite(mixed), -.98f, .98f);
+                monitor[j] = Math.Clamp(Finite((mic[j] * hearMic + clip) * master * monitorGain), -.98f, .98f);
                 micPeak = Math.Max(micPeak, Math.Abs(mic[j]));
                 soundPeak = Math.Max(soundPeak, Math.Abs(clip));
                 outputPeak = Math.Max(outputPeak, Math.Abs(buffer[offset + j]));
@@ -127,5 +130,6 @@ public sealed class MixBus : ISampleProvider, IDisposable
         return count;
     }
 
+    private static float Finite(float value) => float.IsFinite(value) ? value : 0;
     public void Dispose() { effects.Dispose(); if (ownsCatalog) catalog.Dispose(); }
 }

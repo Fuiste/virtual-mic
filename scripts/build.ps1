@@ -20,7 +20,13 @@ if ($LASTEXITCODE) { throw 'app build failed' }
 & $dotnet restore tests/VirtualMic.Tests/VirtualMic.Tests.csproj --locked-mode
 if ($LASTEXITCODE) { throw 'test restore failed' }
 & "$PSScriptRoot/build-plugin.ps1"
-& $dotnet run --project tests/VirtualMic.Tests/VirtualMic.Tests.csproj -c Release --no-restore -p:UseSharedCompilation=false -- artifacts/sample-plugins
+& $dotnet restore tests/Fixtures/LegacyPlugin/LegacyPlugin.csproj --locked-mode
+if ($LASTEXITCODE) { throw 'legacy fixture restore failed' }
+& $dotnet build tests/Fixtures/LegacyPlugin/LegacyPlugin.csproj -c Release --no-restore -p:UseSharedCompilation=false
+if ($LASTEXITCODE) { throw 'legacy fixture build failed' }
+New-Item -ItemType Directory -Force artifacts/compatibility-plugins/legacy | Out-Null
+Copy-Item -LiteralPath tests/Fixtures/LegacyPlugin/bin/Release/net10.0/LegacyPlugin.dll,tests/Fixtures/LegacyPlugin/bin/Release/net10.0/LegacyPlugin.deps.json,tests/Fixtures/LegacyPlugin/plugin.json -Destination artifacts/compatibility-plugins/legacy
+& $dotnet run --project tests/VirtualMic.Tests/VirtualMic.Tests.csproj -c Release --no-restore -p:UseSharedCompilation=false -- src/VirtualMic.App/bin/Release/net10.0-windows/plugins artifacts/compatibility-plugins
 if ($LASTEXITCODE) { throw 'audio tests failed' }
 if ($Publish) {
     & $dotnet publish src/VirtualMic.App/VirtualMic.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:NuGetLockFilePath=packages.publish.lock.json -p:RestoreLockedMode=true -p:UseSharedCompilation=false -o $OutputDirectory
@@ -31,7 +37,7 @@ if ($Publish) {
     $pluginSdk = Join-Path $OutputDirectory 'plugin-sdk'
     New-Item -ItemType Directory -Force -Path $pluginSdk | Out-Null
     Copy-Item -LiteralPath src/VirtualMic.PluginApi/bin/Release/net10.0/VirtualMic.PluginApi.dll -Destination $pluginSdk
-    $pluginRoot = (Resolve-Path -LiteralPath artifacts/sample-plugins).Path
+    $pluginRoot = (Resolve-Path -LiteralPath (Join-Path $OutputDirectory 'plugins')).Path
     $report = Join-Path $projectRoot 'artifacts/plugin-smoke.json'
     $appPath = (Resolve-Path -LiteralPath (Join-Path $OutputDirectory 'VirtualMic.exe')).Path
     $probe = Start-Process -FilePath $appPath -ArgumentList "--verify-plugins `"$pluginRoot`" `"$report`"" -WindowStyle Hidden -PassThru
