@@ -101,7 +101,7 @@ the assembly field is a filename in that folder, not an absolute path. the loade
 
 ## develop outside this repo
 
-the 0.2 portable build includes `plugin-sdk/VirtualMic.PluginApi.dll`. reference it from a normal .net class library; adjust this hint path to your extracted build:
+the 0.3 portable build includes `plugin-sdk/VirtualMic.PluginApi.dll`. reference it from a normal .net class library; adjust this hint path to your extracted build:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
