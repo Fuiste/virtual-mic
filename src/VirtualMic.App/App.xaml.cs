@@ -16,11 +16,36 @@ public partial class App : Application
         base.OnStartup(e);
         try
         {
+            if (e.Args.Length == 2 && e.Args[0] == "--verify-capture")
+            {
+                // Explicit local diagnostic: captures briefly into memory; no
+                // output endpoint, recording, settings mutation or sound playback.
+                Dispatcher.BeginInvoke(async () =>
+                {
+                    try
+                    {
+                        var store = new VirtualMic.Core.LibraryStore(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualMic"));
+                        var state = store.Load();
+                        var errors = new System.Collections.Concurrent.ConcurrentQueue<string>();
+                        using var mic = new TimedCapture(state.MicrophoneId ?? throw new InvalidOperationException("no saved microphone"), false, ex => errors.Enqueue(ex.Message));
+                        using var speakers = new TimedCapture(state.MonitorId ?? throw new InvalidOperationException("no saved speaker output"), true, ex => errors.Enqueue(ex.Message));
+                        await Task.Delay(1200);
+                        var report = new { capturePassed = mic.Available && speakers.Available && mic.ReliableTimestamps && speakers.ReliableTimestamps && mic.Timeline.BufferedFrames > 24000 && errors.IsEmpty,
+                            microphoneFrames = mic.Timeline.BufferedFrames, speakerFrames = speakers.Timeline.BufferedFrames,
+                            totalMicrophoneFrames = Interlocked.Read(ref mic.CapturedFrames), microphoneDiscontinuities = mic.Discontinuities, timelineGeneration = mic.Timeline.Generation,
+                            timestampsValid = mic.ReliableTimestamps && speakers.ReliableTimestamps, errors = errors.ToArray(), audioPlayed = false, audioSaved = false };
+                        File.WriteAllText(e.Args[1], JsonSerializer.Serialize(report)); Shutdown(report.capturePassed ? 0 : 1);
+                    }
+                    catch (Exception ex) { File.WriteAllText(e.Args[1], ex.ToString()); Shutdown(1); }
+                });
+                return;
+            }
             if (e.Args.Length == 3 && e.Args[0] == "--verify-plugins")
             {
                 try
                 {
                     VirtualMic.Diagnostics.PluginSmoke.Run(e.Args[1]);
+                    foreach (var test in VirtualMic.Diagnostics.BundledPluginTests.Cases(e.Args[1])) test.Run();
                     File.WriteAllText(e.Args[2], "{\"pluginSmokePassed\":true,\"audioOpened\":false}"); Shutdown(0);
                 }
                 catch (Exception ex) { File.WriteAllText(e.Args[2], ex.ToString()); Shutdown(1); }
@@ -48,7 +73,7 @@ public partial class App : Application
                 });
                 return;
             }
-            bool render = e.Args.Length == 2 && e.Args[0] is "--render-preview" or "--render-compact" or "--render-empty" or "--render-error";
+            bool render = e.Args.Length == 2 && e.Args[0] is "--render-preview" or "--render-compact" or "--render-empty" or "--render-error" or "--render-cleanup";
             var window = new MainWindow(render);
             MainWindow = window;
             if (render)
@@ -62,6 +87,7 @@ public partial class App : Application
                     try
                     {
                         window.VerifyUi(); window.UpdateLayout();
+                        if (e.Args[0] is "--render-cleanup" or "--render-compact") window.CleanVoicePreview();
                         if (e.Args[0] == "--render-empty") window.EmptyPreview();
                         if (e.Args[0] == "--render-error") window.ErrorPreview();
                         if (e.Args[0] == "--render-compact") { window.Width = window.MinWidth; window.Height = window.MinHeight; }

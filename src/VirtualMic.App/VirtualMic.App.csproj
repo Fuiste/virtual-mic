@@ -5,11 +5,16 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>VirtualMic</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.2.0-preview.1</Version>
+    <Version>0.3.0-preview.1</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../tests/Shared/PluginSmoke.cs" Link="Diagnostics/PluginSmoke.cs" />
     <ProjectReference Include="../VirtualMic.Core/VirtualMic.Core.csproj" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <ProjectReference Include="../../plugins/VirtualMic.Essentials/VirtualMic.Essentials.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="../../plugins/VirtualMic.Voice/VirtualMic.Voice.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="../../examples/VirtualMic.Delay/VirtualMic.Delay.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
+  <Import Project="../../plugins/BundledPlugins.targets" />
+<ItemGroup><Compile Include="../../tests/Shared/BundledPluginTests.cs" Link="Diagnostics/BundledPluginTests.cs" /></ItemGroup>
 </Project>

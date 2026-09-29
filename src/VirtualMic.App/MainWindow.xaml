@@ -67,8 +67,8 @@
           <DockPanel LastChildFill="False"><TextBlock x:Name="LevelText" Text="−∞ dbfs" Style="{StaticResource Label}" ToolTip="virtual output level"/><TextBlock x:Name="LimitText" DockPanel.Dock="Right" Style="{StaticResource Label}" FontSize="10"/></DockPanel>
           <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Margin="0,16,0,0" Padding="0,14,0,0">
             <StackPanel>
-              <DockPanel Margin="0,0,0,9"><TextBlock Text="monitor" Foreground="{StaticResource Accent}" FontSize="12"/><CheckBox x:Name="MonitorToggle" Content="listen" HorizontalAlignment="Right" Checked="ControlsChanged" Unchecked="ControlsChanged"/></DockPanel>
-              <ComboBox x:Name="MonitorOutput" DisplayMemberPath="Name" SelectionChanged="DeviceChanged" AutomationProperties.Name="headphone monitor device"/>
+              <DockPanel Margin="0,0,0,9"><TextBlock Text="speakers / headphones" Foreground="{StaticResource Accent}" FontSize="12"/><CheckBox x:Name="MonitorToggle" Content="listen" HorizontalAlignment="Right" Checked="ControlsChanged" Unchecked="ControlsChanged"/></DockPanel>
+              <ComboBox x:Name="MonitorOutput" DisplayMemberPath="Name" SelectionChanged="DeviceChanged" AutomationProperties.Name="speaker and monitor output" ToolTip="select the output your call app plays through; also used for echo cancellation"/>
               <DockPanel LastChildFill="False" Margin="0,10,0,0"><TextBlock Text="volume" Style="{StaticResource Label}"/><TextBlock x:Name="MonitorValue" DockPanel.Dock="Right" Text="50%" Style="{StaticResource Label}"/></DockPanel>
               <Slider x:Name="MonitorVolume" Value="50" ValueChanged="SliderChanged" AutomationProperties.Name="headphone monitor volume"/>
               <CheckBox x:Name="HearMic" Content="hear microphone" Checked="ControlsChanged" Unchecked="ControlsChanged" Margin="0,5,0,0" ToolTip="include your voice in the monitor; use headphones to avoid feedback"/>

@@ -6,3 +6,13 @@
 - vb-cable is separately installed software from vb-audio. no vb-cable installer, driver, or license is included or implied by this project.
 
 virtual mic is licensed under the mit license in `LICENSE`. third-party components retain their own licenses and notices.
+
+## bundled voice processing (0.3)
+
+The echo-cancellation and noise-suppression plugins redistribute the unmodified
+win-x64 `webrtc-apm.dll` from SoundFlow.Extensions.WebRtc.Apm 1.4.0 (NuGet).
+This uses WebRTC / PulseAudio audio-processing code, Abseil, and the upstream
+Windows compiler runtime. The complete collected notices, WebRTC patent grant,
+and source/provenance details are in [licenses/webrtc](licenses/webrtc/README.md).
+The build checks the DLL SHA-256; no managed SoundFlow audio engine is bundled.
+Our C# plugin implementations are covered by this repository's MIT license.

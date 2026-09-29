@@ -1,4 +1,35 @@
-# local verification / 2026-09-28
+# local verification / 2026-09-29
+
+## 0.3 bundled voice plugins
+
+- release build: 0 warnings/errors; **48/48** core, DSP, capture-timing and plugin checks passed.
+- all six effects load from external folders; the host has no built-in effect registration.
+- unchanged API v1 fixture loads against the current shared contract.
+- podcast compressor reduces a 20 dB input level difference and bounds overloads.
+- synthetic steady-noise attenuation: **17.5 dB** after adaptation.
+- synthetic delayed-echo attenuation: **21.9 dB** after adaptation. an independent
+  173 Hz near-end test tone remained at 0.071 RMS during simultaneous playback.
+  these signals are regression fixtures, not recorded human speech or a room test.
+- native frame adapters handle irregular stereo chunks with zero managed
+  allocations after warmup. mic-only scope and missing-reference bypass passed.
+- timestamp alignment, +/-150 ppm reference drift, gaps, backlog limits and
+  +/-1.5 ms packet jitter passed. the jitter regression was added after a real
+  device check exposed overlapping reported timestamps.
+- the published executable loaded/processed all bundled DLLs, including native APM.
+- populated, cleanup, minimum-size, empty and error views rendered; preset, target
+  restrictions, add/remove/reorder/parameter controls and isolated library checks passed.
+- a silent 1.2-second capture-only check on the saved local mic/speaker endpoints
+  passed: 57,600 microphone frames captured, valid timestamps, no capture errors.
+  it opened no playback stream and saved no audio. this does not test actual echo removal.
+
+**still pending for 0.3:** room/listening tests, Discord/Slack soundboard playback,
+full mic/cable/monitor routing on the revised capture path, device removal/recovery,
+long sessions and a fresh-machine run. earlier hardware output/listening results
+below describe 0.1 and do not qualify the new capture path.
+
+Reproduce with `scripts/build.ps1 -Publish` and `scripts/verify-ui.ps1`.
+The optional capture-only command is documented in [voice processing](voice-processing.md).
+
 
 ## 0.2 plugin preview
 

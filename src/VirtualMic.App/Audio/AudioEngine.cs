@@ -13,10 +13,13 @@ public sealed record AudioDevice(string Id, string Name, bool IsVirtual)
 
 public sealed class AudioEngine : IDisposable
 {
-    private WasapiCapture? capture;
+    private TimedCapture? capture;
+    private TimedCapture? speakerCapture;
+    private ReferencedMicrophone? microphoneSource;
+    private EffectCatalog? effectCatalog;
+    private bool referenceAttempted;
     private WasapiOut? output;
     private WasapiOut? monitor;
-    private MMDevice? micDevice;
     private MMDevice? outDevice;
     private MMDevice? monitorDevice;
     private volatile bool stopping;
@@ -25,6 +28,8 @@ public sealed class AudioEngine : IDisposable
     public bool IsRunning => output?.PlaybackState == PlaybackState.Playing;
     public event Action<string>? Faulted;
     public event Action<string>? MonitorFaulted;
+    public event Action<string>? ReferenceFaulted;
+    public bool EchoReferenceActive { get; private set; }
 
     public static List<AudioDevice> Devices(DataFlow flow)
     {
@@ -58,29 +63,15 @@ public sealed class AudioEngine : IDisposable
         try
         {
             using var enumerator = new MMDeviceEnumerator();
-            micDevice = enumerator.GetDevice(mic.Id);
             outDevice = enumerator.GetDevice(destination.Id);
-            capture = new WasapiCapture(micDevice);
-            var input = new BufferedWaveProvider(capture.WaveFormat)
-            {
-                BufferDuration = TimeSpan.FromMilliseconds(250),
-                DiscardOnBufferOverflow = true,
-                ReadFully = true
-            };
-            capture.DataAvailable += (_, args) =>
-            {
-                if (stopping) return;
-                if (input.BufferedDuration.TotalMilliseconds > 120) input.ClearBuffer();
-                input.AddSamples(args.Buffer, 0, args.BytesRecorded);
-            };
-            capture.RecordingStopped += (_, args) =>
+            capture = new TimedCapture(mic.Id, false, error =>
             {
                 if (!stopping && generation == Volatile.Read(ref session))
-                    Faulted?.Invoke(AudioDiagnostics.Describe("microphone capture stopped", args.Exception));
-            };
-            ISampleProvider source = input.ToSampleProvider();
-            source = Stereo48(source);
-            Bus = new MixBus(source, catalog) { Settings = settings };
+                    Faulted?.Invoke(AudioDiagnostics.Describe("microphone capture stopped", error));
+            }, () => ReferenceFaulted?.Invoke("echo cancellation bypassed: microphone timestamps unavailable; restart audio to retry"));
+            effectCatalog = catalog;
+            microphoneSource = new(capture);
+            Bus = new MixBus(microphoneSource, catalog) { Settings = settings };
             output = new WasapiOut(outDevice, AudioClientShareMode.Shared, true, 30);
             output.Init(new FloatWaveProvider(Bus));
             output.PlaybackStopped += (_, args) =>
@@ -88,7 +79,6 @@ public sealed class AudioEngine : IDisposable
                 if (!stopping && generation == Volatile.Read(ref session))
                     Faulted?.Invoke(AudioDiagnostics.Describe("virtual output stopped", args.Exception));
             };
-            capture.StartRecording();
             output.Play();
             UpdateSettings(settings, headphones);
         }
@@ -100,6 +90,10 @@ public sealed class AudioEngine : IDisposable
     public void UpdateSettings(AudioSettings settings, AudioDevice? headphones)
     {
         if (Bus is null) return;
+        UpdateReference(settings, headphones);
+        // Hearing your own mic through speakers forms an acoustic feedback loop.
+        // Keep soundboard monitoring available while speaker cleanup is enabled.
+        if (EchoReferenceActive) settings = settings with { MonitorMic = false };
         Bus.Settings = settings;
         if (!settings.MonitorEnabled) { StopMonitor(); return; }
         if (monitor is not null) return;
@@ -127,6 +121,35 @@ public sealed class AudioEngine : IDisposable
         }
     }
 
+    private void UpdateReference(AudioSettings settings, AudioDevice? speakers)
+    {
+        bool needed = settings.Effects?.Any(s => s.Enabled && effectCatalog?.Find(s.EffectId)?.Definition.RequiresSpeakerReference == true) == true;
+        EchoReferenceActive = needed;
+        if (!needed)
+        {
+            microphoneSource?.SetSpeakers(null);
+            speakerCapture?.Dispose(); speakerCapture = null; referenceAttempted = false;
+            return;
+        }
+        if (referenceAttempted) return;
+        referenceAttempted = true;
+        try
+        {
+            if (speakers is null || speakers.IsVirtual) throw new InvalidOperationException("select the physical output used by your call app");
+            int generation = Volatile.Read(ref session);
+            speakerCapture = new TimedCapture(speakers.Id, true, error =>
+            {
+                if (!stopping && generation == Volatile.Read(ref session))
+                    ReferenceFaulted?.Invoke(AudioDiagnostics.Describe("echo cancellation bypassed: speaker capture stopped", error));
+            }, () => ReferenceFaulted?.Invoke("echo cancellation bypassed: speaker timestamps unavailable; restart audio to retry"));
+            microphoneSource?.SetSpeakers(speakerCapture);
+        }
+        catch (Exception ex)
+        {
+            ReferenceFaulted?.Invoke(AudioDiagnostics.Describe("echo cancellation bypassed: speaker reference unavailable", ex));
+        }
+    }
+
     public void StopMonitor()
     {
         var player = monitor;
@@ -151,12 +174,13 @@ public sealed class AudioEngine : IDisposable
         Interlocked.Increment(ref session);
         // Call only from the control thread, never from an audio callback.
         // Device removal can make one teardown call fail; release the other endpoints anyway.
-        Release(() => capture?.StopRecording());
         Release(() => output?.Stop());
+        microphoneSource?.SetSpeakers(null);
+        Release(() => speakerCapture?.Dispose()); speakerCapture = null;
         StopMonitor();
         Release(() => capture?.Dispose()); capture = null;
+        microphoneSource = null; effectCatalog = null; referenceAttempted = false; EchoReferenceActive = false;
         Release(() => output?.Dispose()); output = null;
-        Release(() => micDevice?.Dispose()); micDevice = null;
         Release(() => outDevice?.Dispose()); outDevice = null;
         Bus?.Dispose(); Bus = null;
     }

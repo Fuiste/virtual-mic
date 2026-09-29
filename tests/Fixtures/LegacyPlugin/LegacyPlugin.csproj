@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework><EnableDynamicLoading>true</EnableDynamicLoading></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../ApiV1/ApiV1.csproj" Private="false" ExcludeAssets="runtime" /></ItemGroup>
+</Project>

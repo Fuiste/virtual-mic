@@ -1,4 +1,4 @@
-namespace VirtualMic.Core;
+namespace VirtualMic.Essentials;
 
 public sealed class VoiceEffects
 {
@@ -8,14 +8,6 @@ public sealed class VoiceEffects
     private float wet;
     private float gain = 1;
     private float drive = 1;
-
-    public void Process(float[] samples, int count, AudioSettings settings)
-    {
-        float targetBass = settings.BassEnabled ? Math.Clamp(settings.BassDb, 0, 18) : 0;
-        float targetWet = settings.DistortionEnabled ? Math.Clamp(settings.DistortionMix, 0, 1) : 0;
-        Process(samples.AsSpan(0, count), targetBass, Math.Clamp(settings.Drive, 1, 20), targetWet,
-            settings.MicMuted ? 0 : Math.Clamp(settings.MicGain, 0, 2));
-    }
 
     public void Process(Span<float> samples, float targetBass, float targetDrive, float targetWet, float targetGain = 1)
     {

@@ -149,8 +149,8 @@ internal static class PluginSmoke
         {
             File.WriteAllText(Path.Combine(bad, "plugin.json"), manifest);
             using var catalog = new EffectCatalog(); catalog.LoadDirectory(directory);
-            if (catalog.Errors.Count != 1 || catalog.Effects.Count() != 2)
-                throw new InvalidDataException("bad plugin prevented built-in effects from loading");
+            if (catalog.Errors.Count != 1 || catalog.Effects.Any())
+                throw new InvalidDataException("bad plugin was accepted or error was not isolated");
         }
     }
 }

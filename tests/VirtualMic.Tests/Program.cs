@@ -1,6 +1,8 @@
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using VirtualMic.Core;
+using VirtualMic.Core.Effects;
+string pluginDirectory = args.Length > 0 ? args[0] : "src/VirtualMic.App/bin/Release/net10.0-windows/plugins";
 
 var tests = new (string Name, Action Run)[]
 {
@@ -96,19 +98,19 @@ var tests = new (string Name, Action Run)[]
         Check(a.SequenceEqual(b), "voice effects leaked into clip bus");
     }),
     ("bass shelf increases low frequencies", () => {
-        var fx = new VoiceEffects(); double dryPower = 0, wetPower = 0;
+        using var catalog = new EffectCatalog(); catalog.LoadDirectory(pluginDirectory); var plugin = catalog.Find("virtualmic.bass")!; using var fx = plugin.Factory.Create(48000, 2); double dryPower = 0, wetPower = 0;
         for (int block = 0; block < 150; block++) {
             var samples = new float[960];
             for (int i = 0; i < samples.Length; i += 2) samples[i] = samples[i+1] = .01f * MathF.Sin(2 * MathF.PI * 60 * (block*480+i/2)/48000);
             if (block > 100) dryPower += samples.Sum(x => (double)x*x);
-            fx.Process(samples, samples.Length, new(BassEnabled:true, BassDb:12));
+            fx.Process(samples, plugin.Parameters(new Dictionary<string, float> { ["gain"] = 12 }));
             if (block > 100) wetPower += samples.Sum(x => (double)x*x);
         }
         Check(wetPower / dryPower > 8, "bass did not increase low-frequency energy");
     }),
     ("distortion changes the mic waveform", () => {
-        var fx = new VoiceEffects(); var samples = Enumerable.Repeat(.1f, 16000).ToArray();
-        fx.Process(samples, samples.Length, new(DistortionEnabled:true, Drive:10, DistortionMix:1));
+        using var catalog = new EffectCatalog(); catalog.LoadDirectory(pluginDirectory); var plugin = catalog.Find("virtualmic.distortion")!; using var fx = plugin.Factory.Create(48000, 2); var samples = Enumerable.Repeat(.1f, 16000).ToArray();
+        fx.Process(samples, plugin.Parameters(new Dictionary<string, float> { ["drive"] = 10, ["mix"] = 100 }));
         Check(samples[^1] > .7f && samples[^1] < .8f, "distortion failed");
     }),
     ("queue overflow retains latest frames and underflow is silence", () => {
@@ -154,8 +156,18 @@ var tests = new (string Name, Action Run)[]
 };
 int failures = 0;
 var allTests = tests.Concat(EffectTests.Cases()).ToList();
-if (args.Length == 1) allTests.AddRange(VirtualMic.Diagnostics.PluginSmoke.Cases(args[0]));
-allTests.Add(("invalid manifests preserve built-ins", () =>
+allTests.AddRange(CaptureTests.Cases());
+if (args.Length > 1) allTests.Add(("plugin compiled against the frozen v1 contract runs unchanged", () =>
+{
+    using var catalog = new EffectCatalog(); catalog.LoadDirectory(args[1]);
+    Check(catalog.Errors.Count == 0, string.Join("; ", catalog.Errors));
+    var plugin = catalog.Find("fixture.legacy") ?? throw new InvalidOperationException("legacy fixture missing");
+    using var fx = plugin.Factory.Create(48000, 2); float[] input = [.1f, -.2f];
+    fx.Process(input, plugin.Parameters(new Dictionary<string, float>())); Near(input[0], .2f); Near(input[1], -.4f);
+}));
+allTests.AddRange(VirtualMic.Diagnostics.PluginSmoke.Cases(pluginDirectory));
+allTests.AddRange(VirtualMic.Diagnostics.BundledPluginTests.Cases(pluginDirectory));
+allTests.Add(("invalid manifests are isolated", () =>
 {
     string directory = Path.Combine(Path.GetTempPath(), "virtualmic-plugin-test-" + Guid.NewGuid().ToString("N"));
     try { VirtualMic.Diagnostics.PluginSmoke.InvalidManifests(directory); }
