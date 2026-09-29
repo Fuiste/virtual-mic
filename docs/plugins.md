@@ -1,6 +1,6 @@
 # effects and plugins / api v2
 
-the 0.3 development build bundles all effects as external plugins, with mic-only voice cleanup and a speaker-reference contract. [voice setup](voice-processing.md). compiled api v1 plugins from 0.2 remain supported.
+the 0.3 preview bundles all effects as external plugins, with mic-only voice cleanup and a speaker-reference contract. [voice setup](voice-processing.md). compiled api v1 plugins from 0.2 remain supported.
 
 ## use the chain
 

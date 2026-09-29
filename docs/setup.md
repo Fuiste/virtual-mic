@@ -147,7 +147,7 @@ audio error logs contain timestamps, exception messages, and stack traces; they 
 
 ## 0.3 voice cleanup
 
-The 0.3 development build includes **clean voice**: mic-only echo cancellation,
+The 0.3 preview includes **clean voice**: mic-only echo cancellation,
 noise suppression and podcast compression, applied before soundboard mixing.
 Choose the same **speakers / headphones** output as your call app, then click
 **clean voice**. Speaker capture works with **listen** off. Disable the call app's

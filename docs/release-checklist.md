@@ -1,6 +1,6 @@
 # stable-release qualification
 
-the public `0.2.0-preview.1` build is available for evaluation under the mit license. the items below distinguish completed checks from work still needed before calling a release stable.
+the public `0.3.0-preview.1` build is available for evaluation under the mit license. the items below distinguish completed checks from work still needed before calling a release stable.
 
 ## verified locally
 

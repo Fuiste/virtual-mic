@@ -4,7 +4,7 @@ a windows soundboard that mixes your microphone and sound clips into a virtual a
 
 **early preview for windows 11 x64.** working on the initial test system; wider device, call-client, and long-session testing is still needed. the portable executable is unsigned.
 
-[download the windows preview](https://github.com/Fuiste/virtual-mic/releases/tag/v0.2.0-preview.1) · [setup guide](docs/setup.md) · [report a problem](https://github.com/Fuiste/virtual-mic/issues)
+[download the windows preview](https://github.com/Fuiste/virtual-mic/releases/tag/v0.3.0-preview.1) · [setup guide](docs/setup.md) · [report a problem](https://github.com/Fuiste/virtual-mic/issues)
 
 ![virtual mic interface](docs/ui-preview.png)
 
@@ -23,15 +23,13 @@ a windows soundboard that mixes your microphone and sound clips into a virtual a
 
 ## download and run
 
-**0.3 is the development version on this branch.** it bundles the six plugins and adds mic-only voice cleanup. the download below remains the published 0.2 preview until 0.3 is released. [voice cleanup setup and limitations](docs/voice-processing.md).
+the **0.3 preview** bundles six plugins and adds mic-only voice cleanup. click **clean voice** for echo cancellation, noise suppression and podcast compression. [voice cleanup setup and limitations](docs/voice-processing.md).
 
-the **0.2 preview** includes the effects chain, c# plugin loader, and plugin sdk. an optional delay reference plugin is available on the same release page.
-
-download `virtual-mic-v0.2.0-preview.1-win-x64.zip` from the [release page](https://github.com/Fuiste/virtual-mic/releases/tag/v0.2.0-preview.1), extract the entire zip, and open `VirtualMic.exe`. this portable build includes its .net runtime; no sdk is required. keep the accompanying docs, license, and notices with it. windows may identify this unsigned preview as an unrecognized app. the release includes `SHA256SUMS.txt` for verifying the zip and executable.
+download `virtual-mic-v0.3.0-preview.1-win-x64.zip` from the [release page](https://github.com/Fuiste/virtual-mic/releases/tag/v0.3.0-preview.1), extract the entire zip, and open `VirtualMic.exe`. keep the `plugins` folder beside the executable. this portable build includes its .net runtime; no sdk is required. keep the accompanying docs, license, and notices with it. windows may identify this unsigned preview as an unrecognized app. the release includes `SHA256SUMS.txt` for verifying the zip, executable and plugin dlls.
 
 install vb-cable separately using the [setup guide](docs/setup.md). first startup is silent; the mic is opened only after **start virtual mic**. in a source checkout, the build is under `artifacts/virtual-mic-win-x64/`.
 
-to try the reference plugin without an sdk, download `virtual-mic-delay-v0.2.0-preview.1.zip` from the release page and extract its `delay` folder into `%LOCALAPPDATA%\VirtualMic\plugins` while the app is closed. reopen the app, select **delay** in the effects menu, and click **+**. [plugin setup and development](docs/plugins.md).
+delay is already bundled: select **delay** in the effects menu and click **+**. the separate delay archive is for api v1 hosts such as 0.2. if you installed delay previously, remove that old user-folder copy while the app is closed to avoid a duplicate-id warning. [plugin setup and development](docs/plugins.md).
 
 when upgrading from 0.1, close the app and back up `%LOCALAPPDATA%\VirtualMic` first. the library migrates to format 2; returning to 0.1 requires restoring the older backup.
 
