@@ -73,12 +73,12 @@ public partial class MainWindow : Window
                 ShowAudioError($"library could not be loaded; original file preserved. {ex.Message}");
             }
         }
+        InitializeGaming();
         initialized = true;
         RefreshLibrary();
         UpdateVoiceControls();
         UpdateControlLabels();
         if (effects.Errors.Count > 0) ShowStatus("some plugins could not load. open plugins for details.", true);
-        meterTimer.Start();
     }
 
     private AudioSettings Settings() => new(
@@ -149,7 +149,7 @@ public partial class MainWindow : Window
             ShowStatus("select headphones before enabling monitoring.", true);
         }
         if (engine.Bus is not null) engine.UpdateSettings(Settings(), MonitorOutput.SelectedItem as AudioDevice);
-        UpdateControlLabels(); ScheduleSave();
+        UpdateControlLabels(); UpdateGamingState(); ScheduleSave();
     }
     private void UpdateControlLabels()
     {
@@ -197,6 +197,7 @@ public partial class MainWindow : Window
             SetDeviceControls(false);
             ScheduleSave();
             ShowStatus("");
+            UpdateGamingState();
         }
         catch (Exception ex) { StopEngine(); ShowAudioError($"could not start audio: {ex.Message}"); }
         finally { starting = false; PowerButton.IsEnabled = true; if (!engine.IsRunning) SetDeviceControls(true); }
@@ -206,12 +207,14 @@ public partial class MainWindow : Window
     private void StopEngine()
     {
         engine.Stop();
+        audioError = false;
         PowerButton.Content = "start virtual mic";
         LiveText.Text = preview ? "preview · audio off" : "stopped";
         LiveDot.Fill = (Brush)FindResource("Muted");
         EngineHint.Visibility = Visibility.Collapsed;
         SetDeviceControls(true);
         UpdateMeters();
+        UpdateGamingState();
     }
 
     private void PadClicked(object sender, RoutedEventArgs e) { if ((sender as Button)?.Tag is PadView pad) Play(pad); }
@@ -222,11 +225,13 @@ public partial class MainWindow : Window
         if (!cache.TryGetValue(pad.Sound.Id, out var samples)) { ShowStatus($"{pad.Name} is unavailable. stop audio and re-add the file.", true); return; }
         engine.Bus.Play(pad.Sound.Id, samples, pad.Sound.Gain);
         ShowStatus($"playing / {pad.Name}");
+        RefreshPlayback();
     }
     private void StopSounds(object sender, RoutedEventArgs e)
     {
         engine.Bus?.StopSounds();
         foreach (var pad in Pads) pad.IsPlaying = false;
+        RefreshPlayback();
         ShowStatus("sounds stopped.");
     }
     private void WindowKeyDown(object sender, KeyEventArgs e)
@@ -269,7 +274,7 @@ public partial class MainWindow : Window
                     Cache(sound.Id, samples);
                     try { await Task.Run(() => ClipLoader.Write(store.Resolve(sound), samples)); }
                     catch { cache.Remove(sound.Id); throw; }
-                    Pads.Add(new(sound, Pads.Count + 1)); added++;
+                    Pads.Add(NewPad(sound)); added++;
                     SaveLibrary();
                 }
                 catch (Exception ex) { errors.Add($"{Path.GetFileName(path)}: {ex.Message}"); }
@@ -299,7 +304,7 @@ public partial class MainWindow : Window
                 var samples = ClipLoader.Tone(i);
                 var sound = new SoundPad(Guid.NewGuid().ToString("N"), names[i], Guid.NewGuid().ToString("N") + ".wav", samples.Length / 96000.0);
                 ClipLoader.Write(store.Resolve(sound), samples); Cache(sound.Id, samples);
-                Pads.Add(new(sound, Pads.Count + 1));
+                Pads.Add(NewPad(sound));
             }
             RefreshLibrary(); SaveLibrary(); ShowStatus("sample sounds added.");
         }
@@ -326,26 +331,30 @@ public partial class MainWindow : Window
         var dialog = new Window { Title = "rename sound", Owner = this, Width = 360, Height = 170, ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = (Brush)FindResource("Bg"), Content = panel };
         done.Click += (_, _) => { if (!string.IsNullOrWhiteSpace(field.Text)) dialog.DialogResult = true; };
         dialog.Loaded += (_, _) => { field.Focus(); field.SelectAll(); };
-        if (dialog.ShowDialog() == true) { pad.Sound = pad.Sound with { Name = field.Text.Trim() }; pad.Refresh(); ScheduleSave(); }
+        if (dialog.ShowDialog() == true) { pad.Sound = pad.Sound with { Name = field.Text.Trim() }; pad.Refresh(); RefreshPlayback(true); ScheduleSave(); }
     }
     private void RefreshLibrary()
     {
         for (int i = 0; i < Pads.Count; i++) { Pads[i].Index = i + 1; Pads[i].Refresh(); }
         EmptyLibrary.Visibility = Pads.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         LibraryCount.Text = $"{Pads.Count} / 24 sounds";
+        RefreshHotkeys(); RefreshPlayback(true);
     }
     private void UpdateMeters()
     {
         if (engine.Bus is { } bus)
             while (bus.TryDequeueEffectFault(out var fault))
                 if (fault is not null) { EffectsEditor.ReportFault(fault); ShowStatus(fault.Message, true); }
-        var levels = engine.Bus?.Levels ?? new AudioLevels(0, 0, 0, false);
-        MicMeter.Value = Meter(levels.Mic); OutputMeter.Value = Meter(levels.Output);
-        LevelText.Text = levels.Output > .00001 ? $"{20 * Math.Log10(levels.Output):0.0} dbfs" : "−∞ dbfs";
-        LimitText.Text = levels.Limited ? "limiting · lower gain" : "";
-        LimitText.Foreground = (Brush)FindResource(levels.Limited ? "Accent" : "Muted");
-        var playing = engine.Bus?.PlayingIds ?? [];
-        foreach (var pad in Pads) pad.IsPlaying = playing.Contains(pad.Sound.Id);
+        if (WindowState != WindowState.Minimized)
+        {
+            var levels = engine.Bus?.Levels ?? new AudioLevels(0, 0, 0, false);
+            MicMeter.Value = Meter(levels.Mic); OutputMeter.Value = Meter(levels.Output);
+            string text = levels.Output > .00001 ? $"{20 * Math.Log10(levels.Output):0.0} dbfs" : "-∞ dbfs";
+            if (LevelText.Text != text) LevelText.Text = text;
+            LimitText.Text = levels.Limited ? "limiting · lower gain" : "";
+            LimitText.Foreground = (Brush)FindResource(levels.Limited ? "Accent" : "Muted");
+        }
+        RefreshPlayback();
     }
     private static double Meter(float level) => level <= .001f ? 0 : Math.Clamp((20 * Math.Log10(level) + 60) / 60, 0, 1);
     private void ScheduleSave() { if (preview || !initialized || readOnly) return; saveTimer.Stop(); saveTimer.Start(); }
@@ -354,7 +363,7 @@ public partial class MainWindow : Window
         if (preview || readOnly) return;
         try
         {
-            saved = new LibraryState { Pads = Pads.Select(x => x.Sound).ToList(), Audio = Settings(),
+            saved = new LibraryState { Pads = Pads.Select(x => x.Sound).ToList(), Audio = Settings(), Gaming = gaming,
                 MicrophoneId = (Microphone.SelectedItem as AudioDevice)?.Id ?? saved.MicrophoneId,
                 OutputId = (VirtualOutput.SelectedItem as AudioDevice)?.Id ?? saved.OutputId,
                 MonitorId = (MonitorOutput.SelectedItem as AudioDevice)?.Id ?? saved.MonitorId };
@@ -366,17 +375,19 @@ public partial class MainWindow : Window
     { Status.Text = text; Status.Foreground = (Brush)FindResource(error ? "Accent" : "Muted"); }
     private void ShowAudioError(string text)
     {
+        audioError = !engine.IsRunning;
         EngineHint.Text = text;
         EngineHint.Visibility = Visibility.Visible;
         EngineHint.Foreground = (Brush)FindResource("Accent");
         ShowStatus(text, true);
+        UpdateGamingState();
     }
     private void OpenCableHelp(object sender, RoutedEventArgs e)
     { try { Process.Start(new ProcessStartInfo("https://vb-audio.com/Cable/") { UseShellExecute = true }); } catch { ShowStatus("visit https://vb-audio.com/cable/ to get the driver."); } }
     private void WindowClosing(object? sender, CancelEventArgs e)
     {
         if (importing) { e.Cancel = true; ShowStatus("finishing the import; close again when it completes."); return; }
-        closed = true; meterTimer.Stop(); saveTimer.Stop(); engine.Dispose(); SaveLibrary(); effects.Dispose();
+        closed = true; meterTimer.Stop(); saveTimer.Stop(); CloseGaming(); engine.Dispose(); SaveLibrary(); effects.Dispose();
     }
 
     private void ShowPlugins()
@@ -418,7 +429,7 @@ public partial class MainWindow : Window
     {
         string[] names = ["air horn", "dramatic pause", "bruh", "tiny applause", "sad trombone", "mission complete"];
         double[] durations = [1.8, 3.2, .8, 2.4, 2.9, 1.6];
-        for (int i = 0; i < names.Length; i++) Pads.Add(new(new($"preview-{i}", names[i], "preview.wav", durations[i]), i + 1));
+        for (int i = 0; i < names.Length; i++) Pads.Add(new(new($"preview-{i}", names[i], "preview.wav", durations[i], Hotkey: HotkeyChord.DefaultFor(i)), i + 1));
         Microphone.ItemsSource = new[] { new AudioDevice("preview-mic", "usb microphone", false) };
         VirtualOutput.ItemsSource = new[] { new AudioDevice("preview-cable", "cable input · vb-audio", true) };
         MonitorOutput.ItemsSource = new[] { new AudioDevice("preview-headphones", "headphones", false) };

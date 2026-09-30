@@ -50,7 +50,8 @@ internal sealed class DelayProcessor : IAudioEffect
             // Smooth gain edits per frame; all channels use the same coefficients.
             wet += (targetWet - wet) * .002f;
             feedback += (targetFeedback - feedback) * .002f;
-            int read = (position - distance + frames) % frames;
+            int read = position - distance;
+            if (read < 0) read += frames;
             for (int ch = 0; ch < channels; ch++)
             {
                 float dry = samples[i + ch];
@@ -59,7 +60,7 @@ internal sealed class DelayProcessor : IAudioEffect
                 history[position * channels + ch] = dry + delayed * feedback;
                 samples[i + ch] = dry * (1 - wet) + delayed * wet;
             }
-            position = (position + 1) % frames;
+            if (++position == frames) position = 0;
         }
     }
 

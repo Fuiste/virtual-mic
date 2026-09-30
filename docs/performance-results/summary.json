@@ -1,0 +1,50 @@
+[
+  {
+    "scenario": "dry",
+    "baselineMs": 25.5051,
+    "currentMs": 23.2701,
+    "improvementPercent": 8.762953291694597
+  },
+  {
+    "scenario": "bass",
+    "baselineMs": 45.0794,
+    "currentMs": 33.5527,
+    "improvementPercent": 25.56977244595092
+  },
+  {
+    "scenario": "distortion",
+    "baselineMs": 34.235,
+    "currentMs": 27.0768,
+    "improvementPercent": 20.90901124580108
+  },
+  {
+    "scenario": "delay",
+    "baselineMs": 17.3565,
+    "currentMs": 16.1072,
+    "improvementPercent": 7.1978797568634345
+  },
+  {
+    "scenario": "podcast",
+    "baselineMs": 24.4073,
+    "currentMs": 19.3529,
+    "improvementPercent": 20.708558505037423
+  },
+  {
+    "scenario": "clean voice",
+    "baselineMs": 106.0942,
+    "currentMs": 100.8401,
+    "improvementPercent": 4.952297109549808
+  },
+  {
+    "scenario": "all six + 8 pads + monitor",
+    "baselineMs": 198.0845,
+    "currentMs": 157.8409,
+    "improvementPercent": 20.316380130701795
+  },
+  {
+    "scenario": "capture + reference alignment",
+    "baselineMs": 70.1598,
+    "currentMs": 52.6139,
+    "improvementPercent": 25.0084806399106
+  }
+]

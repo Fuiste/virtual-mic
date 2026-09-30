@@ -5,6 +5,7 @@
     <Grid.RowDefinitions><RowDefinition Height="56"/><RowDefinition Height="*"/><RowDefinition Height="32"/></Grid.RowDefinitions>
     <Border VerticalAlignment="Top">
       <DockPanel LastChildFill="False">
+        <CheckBox DockPanel.Dock="Right" x:Name="OverlayToggle" Content="overlay" VerticalAlignment="Center" Margin="0,0,18,0" Checked="GamingControlsChanged" Unchecked="GamingControlsChanged" ToolTip="click-through status overlay; visible while virtual mic is in the background"/>
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Path Data="M0,0 L14,0 14,10 9,15 0,15Z" Fill="{StaticResource Accent}" Width="14" Height="15" Margin="0,0,12,0"/><TextBlock Text="virtual mic" FontSize="20" FontWeight="SemiBold"/></StackPanel>
         <Border DockPanel.Dock="Right" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4" Padding="12,8"><StackPanel Orientation="Horizontal"><Ellipse x:Name="LiveDot" Fill="{StaticResource Muted}" Width="6" Height="6" Margin="0,0,8,0"/><TextBlock x:Name="LiveText" Text="stopped" Style="{StaticResource Label}"/></StackPanel></Border>
       </DockPanel>
@@ -17,6 +18,7 @@
           <TextBlock Text="sounds" Style="{StaticResource Heading}" VerticalAlignment="Center"/>
           <Button DockPanel.Dock="Right" Content="+ add sounds" Click="AddSounds" Background="{StaticResource Accent}" Foreground="#151917" BorderBrush="{StaticResource Accent}" Padding="14,8" Margin="8,0,0,0" AutomationProperties.Name="add sound files"/>
           <Button x:Name="StopSoundsButton" DockPanel.Dock="Right" Content="stop sounds" Click="StopSounds" ToolTip="stop every sound pad (esc). microphone stays live." Padding="12,8"/>
+          <Button DockPanel.Dock="Right" Content="gaming" Click="OpenGaming" Margin="0,0,8,0" Padding="12,8" ToolTip="global hotkeys and overlay settings"/>
         </DockPanel>
         <Border Grid.Row="1" Background="{StaticResource Panel}" CornerRadius="5" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="12">
           <Grid>
@@ -29,7 +31,7 @@
                     <Button.ContextMenu><ContextMenu><MenuItem Header="rename sound" Click="RenamePad"/><MenuItem Header="remove from library" Click="RemovePad"/></ContextMenu></Button.ContextMenu>
                     <Grid><Grid.RowDefinitions><RowDefinition Height="23"/><RowDefinition Height="*"/><RowDefinition Height="19"/></Grid.RowDefinitions>
                       <TextBlock Text="{Binding IndexLabel}" Style="{StaticResource Label}" Foreground="{Binding Color}"/>
-                      <TextBlock Text="▶" Foreground="{Binding Color}" HorizontalAlignment="Right" FontSize="12"/>
+                      <TextBlock Text="{Binding HotkeyLabel}" ToolTip="{Binding HotkeyHint}" Style="{StaticResource Label}" HorizontalAlignment="Right" FontSize="9"/>
                       <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="16" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                       <TextBlock Grid.Row="2" Text="{Binding DurationLabel}" Style="{StaticResource Label}"/>
                       <TextBlock Grid.Row="2" Text="{Binding StateLabel}" Foreground="{Binding Color}" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="10"/>

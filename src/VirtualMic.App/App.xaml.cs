@@ -16,6 +16,16 @@ public partial class App : Application
         base.OnStartup(e);
         try
         {
+            if (e.Args.Length == 2 && e.Args[0] == "--verify-gaming")
+            {
+                ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                Dispatcher.BeginInvoke(async () =>
+                {
+                    try { await Gaming.GamingSmoke.Run(e.Args[1]); Shutdown(0); }
+                    catch (Exception ex) { Directory.CreateDirectory(e.Args[1]); File.WriteAllText(Path.Combine(e.Args[1], "error.txt"), ex.ToString()); Shutdown(1); }
+                });
+                return;
+            }
             if (e.Args.Length == 2 && e.Args[0] == "--verify-capture")
             {
                 // Explicit local diagnostic: captures briefly into memory; no

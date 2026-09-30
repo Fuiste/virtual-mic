@@ -26,8 +26,15 @@ public sealed class VoiceEffects
             drive += (targetDrive - drive) * .002f;
             float l = left.Transform(Finite(samples[i]));
             float r = right.Transform(Finite(samples[i + 1]));
-            samples[i] = Saturate(l, drive, wet) * gain;
-            samples[i + 1] = Saturate(r, drive, wet) * gain;
+            // Bass-only processing never needs tanh. For distortion the same
+            // normalization applies to both channels; calculate it once per frame.
+            if (wet == 0) { samples[i] = l * gain; samples[i + 1] = r * gain; }
+            else
+            {
+                float normalization = MathF.Tanh(drive);
+                samples[i] = (l * (1 - wet) + MathF.Tanh(l * drive) / normalization * wet) * gain;
+                samples[i + 1] = (r * (1 - wet) + MathF.Tanh(r * drive) / normalization * wet) * gain;
+            }
         }
     }
 
@@ -36,9 +43,6 @@ public sealed class VoiceEffects
         bass = wet = 0; gain = drive = 1;
         left.Reset(); right.Reset();
     }
-
-    private static float Saturate(float sample, float drive, float wet) =>
-        sample * (1 - wet) + MathF.Tanh(sample * drive) / MathF.Tanh(drive) * wet;
 
     public static float Finite(float sample) => float.IsFinite(sample) ? sample : 0;
 

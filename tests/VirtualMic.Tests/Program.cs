@@ -157,6 +157,7 @@ var tests = new (string Name, Action Run)[]
 int failures = 0;
 var allTests = tests.Concat(EffectTests.Cases()).ToList();
 allTests.AddRange(CaptureTests.Cases());
+allTests.AddRange(GamingTests.Cases());
 if (args.Length > 1) allTests.Add(("plugin compiled against the frozen v1 contract runs unchanged", () =>
 {
     using var catalog = new EffectCatalog(); catalog.LoadDirectory(args[1]);

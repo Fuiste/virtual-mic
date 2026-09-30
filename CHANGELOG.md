@@ -1,5 +1,19 @@
 # changelog
 
+## 0.4.0-preview.1 / unreleased
+
+- configurable windows global hotkeys for all 24 pads, repeat suppression, per-pad badges, conflict reporting, stable id bindings and stop-sounds/overlay actions.
+- minimalist click-through overlay with live/muted/stopped/error status and currently playing names; corner/display controls and active-display following for windowed/borderless games.
+- behavior-preserving mixer/filter/delay/timestamp optimizations, zero managed allocations in steady audio rendering, stopped/minimized ui throttling, and reproducible baseline benchmarks.
+- library format 3 migrates old pad defaults and stores custom/cleared hotkeys and overlay settings; downgrade requires a pre-upgrade backup.
+
+53 offline tests and windows gaming/ui integration checks passed locally. seven golden audio/monitor fixtures match 0.3 byte-for-byte; [performance measurements](docs/performance.md) describe the workload and limits. real-game and mixed-display qualification remains open.
+
+## 0.3.0-preview.1
+
+- six bundled external plugins, including mic-only podcast voice, echo cancellation and noise suppression; one-click clean voice.
+- timestamp-aligned speaker reference, api v2 voice capabilities with compiled v1 compatibility, and native dependency notices/setup docs.
+
 ## 0.2.0-preview.1
 
 - ordered effects chain with per-row mic, sounds, or both targets; add/remove, bypass, reorder, and generated parameter controls.

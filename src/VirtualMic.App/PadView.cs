@@ -11,6 +11,9 @@ public sealed class PadView(SoundPad sound, int index) : INotifyPropertyChanged
     public int Index { get; set; } = index;
     public string IndexLabel => $"{Index:00}";
     public string DurationLabel => $"{Sound.Duration:0.0}s";
+    public string? HotkeyError { get; set; }
+    public string HotkeyLabel => Sound.Hotkey is null ? "" : Sound.Hotkey.Label + (HotkeyError is null ? "" : " !");
+    public string HotkeyHint => HotkeyError ?? (Sound.Hotkey is null ? "assign a global hotkey in gaming" : Sound.Hotkey.Label + " · global hotkey");
     public string Color => new[] { "#f49a45", "#b7d784", "#a58be8", "#e968a6", "#8fc7e8", "#ecc174" }[(Index - 1) % 6];
     public string StateLabel => IsPlaying ? "playing" : "";
     public bool IsPlaying { get => playing; set { if (playing == value) return; playing = value; Refresh(); } }
