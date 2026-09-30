@@ -132,7 +132,7 @@ internal static class EffectTests
                 File.WriteAllText(store.StatePath, legacy);
                 var restored = store.Load(); Check(restored.Version == 1 && restored.Audio.Effects is null, "old library not accepted");
                 store.Save(restored with { Audio = restored.Audio with { Effects = EffectDefaults.FromLegacy(restored.Audio) } });
-                Check(store.Load().Version == 2 && File.ReadAllText(store.StatePath + ".bak") == legacy, "migration overwrote rollback data");
+                Check(store.Load().Version == 3 && File.ReadAllText(store.StatePath + ".bak") == legacy, "migration overwrote rollback data");
                 var duplicate = Slot("test.multiply");
                 string invalid = JsonSerializer.Serialize(new LibraryState { Audio = new(Effects: [duplicate, duplicate]) });
                 File.WriteAllText(store.StatePath, invalid); Throws(() => store.Load());

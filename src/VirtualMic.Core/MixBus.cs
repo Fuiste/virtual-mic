@@ -32,7 +32,9 @@ public sealed class MixBus : ISampleProvider, IDisposable
     private float[] monitor = new float[8192];
     private float[] reference = new float[8192];
     private AudioSettings settings = new();
-    private AudioLevels levels = new(0, 0, 0, false);
+    private float levelMic, levelSounds, levelOutput;
+    private bool levelLimited;
+    private long playbackRevision;
     private float master = .8f;
     private float soundGain = .7f;
     private float micGain = 1;
@@ -51,8 +53,20 @@ public sealed class MixBus : ISampleProvider, IDisposable
         }
     }
     public bool TryDequeueEffectFault(out EffectFault? fault) => effects.TryDequeueFault(out fault);
-    public AudioLevels Levels => Volatile.Read(ref levels);
+    // Publish numbers without allocating on the render thread. Snapshot allocation
+    // belongs to the infrequent control/UI reader instead of every audio block.
+    public AudioLevels Levels { get { lock (gate) return new(levelMic, levelSounds, levelOutput, levelLimited); } }
+    public long PlaybackRevision => Volatile.Read(ref playbackRevision);
     public string[] PlayingIds { get { lock (gate) return voices.Select(v => v.Id).ToArray(); } }
+    public int CopyPlayingIds(Span<string?> destination)
+    {
+        lock (gate)
+        {
+            int count = Math.Min(destination.Length, voices.Count);
+            for (int i = 0; i < count; i++) destination[i] = voices[i].Id;
+            return count;
+        }
+    }
 
     // A pad retriggers instead of stacking itself. Different pads can overlap.
     public void Play(string id, float[] samples, float gain = 1)
@@ -64,14 +78,15 @@ public sealed class MixBus : ISampleProvider, IDisposable
             if (voices.Count >= 16) voices.RemoveAt(0);
             voices.Add(new Voice(id, samples, Math.Clamp(gain, 0, 2)));
             soundsSuppressed = false;
+            Interlocked.Increment(ref playbackRevision);
         }
     }
 
     public void StopSounds()
     {
-        lock (gate) { voices.Clear(); soundsSuppressed = true; effects.ResetSounds(); Monitor.Clear(); }
+        lock (gate) { voices.Clear(); soundsSuppressed = true; effects.ResetSounds(); Monitor.Clear(); Interlocked.Increment(ref playbackRevision); }
     }
-    public void StopSound(string id) { lock (gate) voices.RemoveAll(v => v.Id == id); }
+    public void StopSound(string id) { lock (gate) { if (voices.RemoveAll(v => v.Id == id) > 0) Interlocked.Increment(ref playbackRevision); } }
 
     public int Read(float[] buffer, int offset, int count)
     {
@@ -96,19 +111,23 @@ public sealed class MixBus : ISampleProvider, IDisposable
             for (int i = 0; i < length; i++) sounds[i] += Finite(voice.Samples[voice.Position + i]) * voice.Gain;
             voice.Position += length;
         }
-        voices.RemoveAll(v => v.Position >= v.Samples.Length);
+        if (voices.RemoveAll(v => v.Position >= v.Samples.Length) > 0) Interlocked.Increment(ref playbackRevision);
         bool discontinuity = false;
         bool hasReference = microphone is ISpeakerReferenceSource source && source.CopyReference(reference.AsSpan(0, count), out discontinuity);
         effects.Process(mic, sounds, count, !soundsSuppressed, hasReference ? reference.AsSpan(0, count) : default, discontinuity);
         float micPeak = 0, soundPeak = 0, outputPeak = 0;
         bool limited = false;
+        float targetMaster = Math.Clamp(s.MasterGain, 0, 1), targetSound = Math.Clamp(s.SoundGain, 0, 2);
+        float targetMic = s.MicMuted ? 0 : Math.Clamp(s.MicGain, 0, 2);
+        float targetMonitor = s.MonitorEnabled ? Math.Clamp(s.MonitorGain, 0, 1) : 0;
+        float targetHearMic = s.MonitorMic ? 1 : 0;
         for (int i = 0; i < count; i += 2)
         {
-            master += (Math.Clamp(s.MasterGain, 0, 1) - master) * .002f;
-            soundGain += (Math.Clamp(s.SoundGain, 0, 2) - soundGain) * .002f;
-            micGain += ((s.MicMuted ? 0 : Math.Clamp(s.MicGain, 0, 2)) - micGain) * .002f;
-            monitorGain += ((s.MonitorEnabled ? Math.Clamp(s.MonitorGain, 0, 1) : 0) - monitorGain) * .002f;
-            hearMic += ((s.MonitorMic ? 1f : 0f) - hearMic) * .002f;
+            master += (targetMaster - master) * .002f;
+            soundGain += (targetSound - soundGain) * .002f;
+            micGain += (targetMic - micGain) * .002f;
+            monitorGain += (targetMonitor - monitorGain) * .002f;
+            hearMic += (targetHearMic - hearMic) * .002f;
             for (int ch = 0; ch < 2; ch++)
             {
                 int j = i + ch;
@@ -117,7 +136,7 @@ public sealed class MixBus : ISampleProvider, IDisposable
                 float mixed = (mic[j] + clip) * master;
                 limited |= Math.Abs(mixed) > .98f;
                 buffer[offset + j] = Math.Clamp(Finite(mixed), -.98f, .98f);
-                monitor[j] = Math.Clamp(Finite((mic[j] * hearMic + clip) * master * monitorGain), -.98f, .98f);
+                if (s.MonitorEnabled) monitor[j] = Math.Clamp(Finite((mic[j] * hearMic + clip) * master * monitorGain), -.98f, .98f);
                 micPeak = Math.Max(micPeak, Math.Abs(mic[j]));
                 soundPeak = Math.Max(soundPeak, Math.Abs(clip));
                 outputPeak = Math.Max(outputPeak, Math.Abs(buffer[offset + j]));
@@ -126,7 +145,7 @@ public sealed class MixBus : ISampleProvider, IDisposable
         if (s.MonitorEnabled) Monitor.Write(monitor, 0, count);
         else if (wasMonitoring) Monitor.Clear();
         wasMonitoring = s.MonitorEnabled;
-        Volatile.Write(ref levels, new AudioLevels(micPeak, soundPeak, outputPeak, limited));
+        levelMic = micPeak; levelSounds = soundPeak; levelOutput = outputPeak; levelLimited = limited;
         return count;
     }
 

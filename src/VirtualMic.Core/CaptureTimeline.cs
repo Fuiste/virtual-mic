@@ -26,12 +26,14 @@ public sealed class CaptureTimeline(int capacityFrames = 48000)
             if (discontinuity || (count > 0 && qpc100ns <= times[(head + count - 1) % capacityFrames]))
             { head = count = 0; generation++; }
             bool overflow = false;
+            int index = (head + count) % capacityFrames;
             for (int i = 0; i < samples.Length; i += 2)
             {
-                if (count == capacityFrames) { head = (head + 1) % capacityFrames; count--; if (!overflow) generation++; overflow = true; }
-                int index = (head + count++) % capacityFrames;
+                if (count == capacityFrames) { if (++head == capacityFrames) head = 0; count--; if (!overflow) generation++; overflow = true; }
+                count++;
                 audio[index * 2] = samples[i]; audio[index * 2 + 1] = samples[i + 1];
                 times[index] = qpc100ns + (i / 2) * framePeriod;
+                if (++index == capacityFrames) index = 0;
             }
         }
     }
@@ -43,11 +45,12 @@ public sealed class CaptureTimeline(int capacityFrames = 48000)
             // Bound latency following a stopped/blocked renderer, preserving stereo frames.
             if (count > 5760) { int skip = count - 2880; head = (head + skip) % capacityFrames; count -= skip; generation++; }
             int frames = Math.Min(destination.Length / 2, Math.Max(0, count - holdFrames));
-            for (int i = 0; i < frames; i++)
-            {
-                destination[i * 2] = audio[head * 2]; destination[i * 2 + 1] = audio[head * 2 + 1];
-                timestamps[i] = times[head]; head = (head + 1) % capacityFrames; count--;
-            }
+            int first = Math.Min(frames, capacityFrames - head);
+            audio.AsSpan(head * 2, first * 2).CopyTo(destination);
+            times.AsSpan(head, first).CopyTo(timestamps);
+            audio.AsSpan(0, (frames - first) * 2).CopyTo(destination[(first * 2)..]);
+            times.AsSpan(0, frames - first).CopyTo(timestamps[first..]);
+            head = (head + frames) % capacityFrames; count -= frames;
         }
     }
     public void ReadReference(ReadOnlySpan<double> timestamps, Span<float> destination)
@@ -58,11 +61,12 @@ public sealed class CaptureTimeline(int capacityFrames = 48000)
             for (int i = 0; i < timestamps.Length; i++)
             {
                 double t = timestamps[i]; if (t <= 0) continue;
-                while (count > 1 && times[(head + 1) % capacityFrames] <= t)
-                { head = (head + 1) % capacityFrames; count--; }
+                int next = head + 1 == capacityFrames ? 0 : head + 1;
+                while (count > 1 && times[next] <= t)
+                { head = next; count--; next = head + 1 == capacityFrames ? 0 : head + 1; }
                 if (count == 0) continue;
                 double delta = t - times[head];
-                int next = count > 1 ? (head + 1) % capacityFrames : head;
+                if (count <= 1) next = head;
                 double width = times[next] - times[head];
                 // Never bridge packet loss or loopback's silence gaps.
                 if (delta < -210 || delta > 1000 || (width > 1000 && delta > 210)) continue;

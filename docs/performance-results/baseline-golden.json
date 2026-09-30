@@ -1,0 +1,104 @@
+{
+  "runtime": ".NET 10.0.12",
+  "architecture": "X64",
+  "logicalProcessors": 32,
+  "core": "1.0.0\u002Bfc918a0e794c5dc9ee80ae30ddf1ef1248f64fa4",
+  "blockFrames": 480,
+  "sampleRate": 48000,
+  "synthetic": true,
+  "audioDevicesOpened": false,
+  "golden": true,
+  "rows": [
+    {
+      "scenario": "dry",
+      "pass": 0,
+      "elapsedMs": 29.4636,
+      "audioSeconds": 20,
+      "processCpuMs": 31.25,
+      "oneCoreCpuPercent": 0.15625,
+      "p50Microseconds": 12.8,
+      "p99Microseconds": 16.4,
+      "allocatedBytes": 65008,
+      "audioHash": "df7e61c9c51967a3d7539767d0dab5797a15163e355eb9c7534eac3864706354"
+    },
+    {
+      "scenario": "bass",
+      "pass": 0,
+      "elapsedMs": 49.1693,
+      "audioSeconds": 20,
+      "processCpuMs": 46.875,
+      "oneCoreCpuPercent": 0.234375,
+      "p50Microseconds": 22.2,
+      "p99Microseconds": 30.5,
+      "allocatedBytes": 70664,
+      "audioHash": "a35e8bf067efd8f4b18ef0288bc28d74e61f0615b0627b0d897b9bcab9e85d81"
+    },
+    {
+      "scenario": "distortion",
+      "pass": 0,
+      "elapsedMs": 50.3613,
+      "audioSeconds": 20,
+      "processCpuMs": 46.875,
+      "oneCoreCpuPercent": 0.234375,
+      "p50Microseconds": 21.9,
+      "p99Microseconds": 32.7,
+      "allocatedBytes": 70704,
+      "audioHash": "2c07c6b3962d471ff98840e576be6f5dde600087af493451bfb523f423158e5f"
+    },
+    {
+      "scenario": "delay",
+      "pass": 0,
+      "elapsedMs": 38.2825,
+      "audioSeconds": 20,
+      "processCpuMs": 31.25,
+      "oneCoreCpuPercent": 0.15625,
+      "p50Microseconds": 17,
+      "p99Microseconds": 22,
+      "allocatedBytes": 70992,
+      "audioHash": "937288d5c5f3f2f23f24e194ff0c6631b7b71121e40d6d6ba0cd4850ac4c4d94"
+    },
+    {
+      "scenario": "podcast",
+      "pass": 0,
+      "elapsedMs": 60.085,
+      "audioSeconds": 20,
+      "processCpuMs": 62.5,
+      "oneCoreCpuPercent": 0.3125,
+      "p50Microseconds": 20.4,
+      "p99Microseconds": 24.6,
+      "allocatedBytes": 70704,
+      "audioHash": "e3dc35a52cfb838d910ad857d8bf7d25fbd89df5ec44b945cfda122d2cc8a3e6"
+    },
+    {
+      "scenario": "clean voice",
+      "pass": 0,
+      "elapsedMs": 131.381,
+      "audioSeconds": 20,
+      "processCpuMs": 156.25,
+      "oneCoreCpuPercent": 0.78125,
+      "p50Microseconds": 62.1,
+      "p99Microseconds": 76.4,
+      "allocatedBytes": 74304,
+      "audioHash": "4434f64a8eeddbec3bb6f18eb7c499c04fcda6167279ce609353f9c1f338a619"
+    },
+    {
+      "scenario": "all six \u002B 8 pads \u002B monitor",
+      "pass": 0,
+      "elapsedMs": 195.0102,
+      "audioSeconds": 20,
+      "processCpuMs": 218.75,
+      "oneCoreCpuPercent": 1.09375,
+      "p50Microseconds": 94.5,
+      "p99Microseconds": 107.4,
+      "allocatedBytes": 86608,
+      "audioHash": "1f207e3bd10519dd71584c503c800337e9092f8ebc1864b6f156e808f1898abb"
+    },
+    {
+      "scenario": "capture \u002B reference alignment",
+      "elapsedMs": 67.8336,
+      "audioSeconds": 50,
+      "oneCorePercent": 0.13566720000000002,
+      "allocatedBytes": 56
+    }
+  ]
+}

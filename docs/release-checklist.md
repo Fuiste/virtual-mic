@@ -16,6 +16,10 @@ the public `0.3.0-preview.1` build is available for evaluation under the mit lic
 
 ## remaining audio qualification
 
+- qualify upcoming 0.4 global hotkeys, repeat/retrigger/overlap, stop action and registration conflicts in actual games; test exclusive keyboard input and disabled/closed bindings.
+- qualify overlay physical click-through/no-focus behavior, minimized operation, all corners, mixed-dpi displays, hot-plug and borderless games. exclusive fullscreen is outside this overlay's supported scope.
+- compare whole-app cpu and game frame times with the app closed, dry audio, clean voice and realistic pads/monitoring; [offline benchmark results](performance.md) are not fps measurements.
+
 - verify 0.3 echo cancellation with speakers, noise suppression with real voice, podcast compression, and unfiltered soundboard clips in Discord/Slack. synthetic and capture-only results are in `verification.md`; real-room quality is pending.
 
 - qualify the 0.3 chain and revised capture path by listening with mic/sounds/both targets, multiple ordered effects, and the external delay plugin; verify tails, mute, and sounds-only monitoring in real calls. existing hardware results below predate this change.

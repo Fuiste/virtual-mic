@@ -113,6 +113,11 @@ click **plugins** to see loaded effects/errors and open the installation folder.
 
 ## troubleshooting
 
+for upcoming 0.4 global hotkeys and the status overlay, see [gaming setup](gaming.md).
+use borderless/windowed mode for the overlay, start the audio engine before using
+pad hotkeys, and minimize virtual mic for lower meter overhead. the **gaming**
+button configures chords, corner and display; the **overlay** toggle hides it.
+
 | symptom | check |
 | --- | --- |
 | no cable in the virtual-output list | finish the driver install, restart windows, reopen the app, and refresh devices. check that cable input is enabled in windows playback devices. |

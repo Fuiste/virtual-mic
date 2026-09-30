@@ -1,4 +1,13 @@
-# local verification / 2026-09-29
+# local verification / 2026-09-30
+
+## upcoming 0.4 gaming and performance
+
+- **53/53** offline audio/plugin/clock/concurrency, v1 compatibility, hotkey migration and steady-allocation checks passed; zero release-build warnings/errors.
+- all seven baseline golden audio/monitor fixtures matched byte-for-byte, including gain/mute/monitor/parameter edits. alternating-run medians and exclusions: [performance](performance.md).
+- real windows hotkey registration, message dispatch, conflicts, duplicates, rebind, stale-message rejection and release passed in an isolated integration probe; no physical input was injected.
+- off-screen overlay native layered/transparent/no-activate/toolwindow styles and unchanged foreground focus passed. live/muted/stopped/error, overlap rows and row cap passed.
+- main preview/cleanup/compact/empty/error, gaming settings and idle/playing overlays rendered; import/resampling and format 3 persistence passed without audio devices.
+- **pending:** actual game hotkey delivery, physical click-through/focus tests, mixed-dpi/display placement, monitor disconnect/reconnect, exclusive keyboard capture, whole-app cpu/game frame-time comparisons and long sessions. desktop overlay cannot cover exclusive fullscreen reliably. [gaming setup](gaming.md).
 
 ## 0.3 bundled voice plugins
 

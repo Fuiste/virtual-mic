@@ -19,6 +19,7 @@ a windows soundboard that mixes your microphone and sound clips into a virtual a
 - soundboard monitoring, with a separate opt-in for hearing your processed mic.
 - original synthesized starter tones; no third-party meme recordings bundled.
 - keys 1–9 trigger pads while the window is focused; escape stops sounds.
+- upcoming 0.4: configurable global sound hotkeys and a click-through status/playing-sounds overlay for windowed/borderless games. [gaming setup](docs/gaming.md).
 - local saved library, normalized audio copies, and an atomic settings save with a backup.
 
 ## download and run
@@ -31,7 +32,7 @@ install vb-cable separately using the [setup guide](docs/setup.md). first startu
 
 delay is already bundled: select **delay** in the effects menu and click **+**. the separate delay archive is for api v1 hosts such as 0.2. if you installed delay previously, remove that old user-folder copy while the app is closed to avoid a duplicate-id warning. [plugin setup and development](docs/plugins.md).
 
-when upgrading from 0.1, close the app and back up `%LOCALAPPDATA%\VirtualMic` first. the library migrates to format 2; returning to 0.1 requires restoring the older backup.
+when upgrading, close the app and back up `%LOCALAPPDATA%\VirtualMic` first. the released 0.3 build uses library format 2; the upcoming 0.4 build writes format 3 for hotkeys/overlay settings. returning to an older release requires your pre-upgrade backup.
 
 the visual preview contains illustrative sound names. the real library starts empty; import your own clips or add the four generated starter sounds.
 
@@ -69,7 +70,7 @@ stop the engine before changing devices. microphone/cable failures stop the rout
 - audio uses shared wasapi, with 30 ms primary and 40 ms monitor buffer requests. these are **not measured end-to-end latency**.
 - the output peak guard hard-clamps at 0.98 amplitude (about −0.2 dbfs). sustained overload can still sound distorted; lower the source levels.
 - the monitor queue is bounded to 100 ms and drops oldest frames on overflow. extended clock-drift/dropout testing is still required.
-- no global hotkeys, tray mode, auto-start, pitch shifting or speaker-identity isolation. voice cleanup is WebRTC-based, not krisp.
+- no tray mode, auto-start, pitch shifting or speaker-identity isolation. voice cleanup is WebRTC-based, not krisp. the upcoming overlay requires desktop/windowed/borderless mode; exclusive fullscreen is not supported.
 
 ## develop
 
@@ -81,11 +82,12 @@ windows x64 and the .net 10 sdk specified in `global.json` are required. naudio 
 .\scripts\build-plugin.ps1
 .\scripts\verify-ui.ps1
 .\scripts\package.ps1
+.\scripts\benchmark.ps1
 ```
 
 the scripts use a project-local sdk at `.tools/dotnet` when present, otherwise `dotnet` on the path. dependency caches, tools, binaries, local audio inventory, and generated test files are ignored by git. regular and publish restores have separate committed lock files. the windows ci workflow builds and tests; it does not publish releases.
 
-the build tests routing, chain order, parameter changes, plugin faults, and concurrent edits, and loads the example dll inside the published executable. `verify-ui.ps1` exercises the actual chain controls, renders populated, empty, minimum-size, and audio-error states, then checks import/resampling and persistence in an isolated library. these checks open no audio devices. `package.ps1` creates a distribution zip and sha256 checksums from an explicit file allowlist, including the plugin sdk, bundled plugin folders and native dependency notices.
+the build tests routing, chain order, parameter changes, plugin faults, concurrent edits, hotkey persistence/migration and allocation-free steady rendering. `verify-ui.ps1` exercises the chain controls and library lifecycle, renders the main views, and checks real windows hotkey registration/dispatch/conflicts and overlay native styles/states without audio devices or input injection. `benchmark.ps1` compares released/optimized synthetic audio and verifies identical output; see [measurements and limits](docs/performance.md). `package.ps1` packages the sdk, plugins and notices with checksums.
 
 ## testing and feedback
 

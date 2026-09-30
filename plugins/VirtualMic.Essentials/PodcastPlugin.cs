@@ -23,6 +23,8 @@ public sealed class PodcastPlugin : IAudioEffectPlugin
             float amount = parameters["amount"] / 100;
             float threshold = -12 - 14 * amount, ratio = 1 + 4 * amount;
             float makeup = 5 * amount + parameters["gain"];
+            float slope = 1 - 1 / ratio;
+            float uncompressedGain = MathF.Pow(10, makeup / 20);
             for (int i = 0; i < samples.Length; i += 2)
             {
                 float l = HighPass * (leftOut + samples[i] - leftIn);
@@ -32,9 +34,9 @@ public sealed class PodcastPlugin : IAudioEffectPlugin
                 float speed = peak > envelope ? Attack : Release;
                 envelope = peak + speed * (envelope - peak);
                 float over = 20 * MathF.Log10(Math.Max(envelope, 1e-9f)) - threshold;
-                float reduction = over < -3 ? 0 : over > 3 ? over * (1 - 1 / ratio)
-                    : (over + 3) * (over + 3) / 12 * (1 - 1 / ratio);
-                float target = MathF.Pow(10, (makeup - reduction) / 20);
+                float reduction = over < -3 ? 0 : over > 3 ? over * slope
+                    : (over + 3) * (over + 3) / 12 * slope;
+                float target = reduction == 0 ? uncompressedGain : MathF.Pow(10, (makeup - reduction) / 20);
                 gain += .004f * (target - gain);
                 samples[i] = Limit(l * gain); samples[i + 1] = Limit(r * gain);
             }

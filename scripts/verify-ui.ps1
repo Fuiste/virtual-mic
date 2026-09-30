@@ -18,3 +18,7 @@ $libraryPath = Join-Path $projectRoot 'artifacts\library-check'
 $process = Start-Process -FilePath $executable -ArgumentList @('--verify-library', "`"$libraryPath`"") -WindowStyle Hidden -PassThru -Wait
 if ($process.ExitCode -ne 0) { throw 'library smoke test failed; see artifacts/library-check/error.txt' }
 Get-Content -LiteralPath (Join-Path $libraryPath 'result.json')
+$gamingPath = Join-Path $projectRoot 'artifacts\gaming-check'
+$process = Start-Process -FilePath $executable -ArgumentList @('--verify-gaming', "`"$gamingPath`"") -WindowStyle Hidden -PassThru -Wait
+if ($process.ExitCode -ne 0) { throw 'gaming integration checks failed; see artifacts/gaming-check/error.txt' }
+Get-Content -LiteralPath (Join-Path $gamingPath 'result.json')
